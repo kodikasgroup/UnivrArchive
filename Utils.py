@@ -1,3 +1,7 @@
+from telegram import Update
+from telegram.ext import CallbackContext
+
+
 class Utils:
     @staticmethod
     def get_start_message(opening: str, name: str) -> str:
@@ -21,3 +25,11 @@ class Utils:
                   "📕📕📕Buon Studio 📕📕📕"
         message = message.format(name, opening)
         return message
+
+    @staticmethod
+    def delete_last_message(update: Update, context: CallbackContext):
+        message_id = update.callback_query.message.message_id
+        chat_id = update.callback_query.from_user.id
+
+        context.bot.delete_message(chat_id=chat_id,
+                                   message_id=message_id)
