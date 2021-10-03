@@ -2,6 +2,7 @@ import telegram
 from telegram import InlineKeyboardMarkup, Update
 from telegram.ext import CallbackContext
 
+from DbHandler import DbHandler
 from ExclusiveButtonGenerator import ExclusiveButtonGenerator
 from HashHandler import HashHandler
 from Utils import Utils
@@ -24,6 +25,8 @@ class ExclusiveButtonHandler:
         path = "archive/" + unhashed_text
         price = unhashed_text.split('/')[-1].split('.')[0]
         price = int(price)
+        db_handler = DbHandler.get_instance()
+
         # TODO complete method
 
     @staticmethod
