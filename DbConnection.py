@@ -18,11 +18,21 @@ class DbConnection:
             logging.debug("An Error Occurred during db connection: ")
             logging.debug(f"{error}")
 
-    def __execute_query(self, query: str, chat_id: int):
+    def __execute_update_query(self, query: str) -> None:
+        """
+        executes the given update query
+        :param query: the sql interrogation to execute
+        :return:
+        """
+        cur = self.conn.cursor()
+        cur.execute(query)
+        self.conn.commit()
+
+    def __execute_select_query(self, query: str, chat_id: int):
         """
         executes the given query and then returns the result of the execution
-        :param query:
-        :param chat_id:
+        :param query: the sql interrogation to execute
+        :param chat_id: the id of the user
         :return:
         """
         cur = self.conn.cursor()
@@ -49,7 +59,7 @@ class DbConnection:
         :return:
         """
         query = f"SELECT Vip FROM Reserved WHERE chat_id=={chat_id}"
-        return self.__execute_query(query, chat_id)
+        return self.__execute_select_query(query, chat_id)
 
     def get_credits(self, chat_id: int) -> int:
         """
@@ -58,4 +68,8 @@ class DbConnection:
         :return:
         """
         query = f"SELECT Credit FROM Reserved WHERE chat_id=={chat_id}"
-        return self.__execute_query(query, chat_id)
+        return self.__execute_select_query(query, chat_id)
+
+    def update_credits(self, chat_id: int, value: int) -> None:
+        query = f"UPDATE Reserved SET Credit = {value} WHERE chat_id=={chat_id}"
+        self.__execute_update_query(query)

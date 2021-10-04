@@ -29,11 +29,17 @@ class DbHandler:
         logging.debug(f"User with chat_id: {chat_id}, has {value} credits")
         return value
 
-
+    @staticmethod
+    def update_credits(chat_id: int, value: int) -> bool:
+        curr_value = DbHandler.db_connection.get_credits(chat_id)
+        if value < 0 and (-1 * value) > curr_value:
+            logging.debug(f"Can't subtract {-1 * value} credits to User with chat_id: {chat_id}")
+            return False
+        else:
+            new_value = curr_value + value
+            DbHandler.db_connection.update_credits(chat_id, new_value)
+            return True
 
     # TODO add method increase downloads
-    # TODO add method decrease credits
 
 
-print(DbHandler.get_credits(35269564))
-print(DbHandler.is_vip(35269564))
