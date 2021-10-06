@@ -4,6 +4,7 @@ import telegram
 from telegram import Update
 from telegram.ext import CallbackContext
 
+from DbHandler import DbHandler
 from FileHandler import FileHandler
 
 
@@ -41,7 +42,6 @@ class Utils:
 
     @staticmethod
     def send_file(context, path, chat_id):
-        # TODO increase downloads
         file = FileHandler.get_file_id(path)
         if file is None:
             file = open(path, 'rb')
@@ -63,3 +63,4 @@ class Utils:
             path=path,
             file_id=response.document.file_id
         )
+        DbHandler.increase_download(chat_id)

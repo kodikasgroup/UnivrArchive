@@ -37,8 +37,6 @@ class ExclusiveButtonHandler:
                 context.bot.send_message(chat_id=chat_id,
                                          text=message)
 
-        # TODO fix errors
-
     @staticmethod
     def subject_button_handler(update: Update, context: CallbackContext, text: str, chat_id: int):
         """

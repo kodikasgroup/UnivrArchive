@@ -46,5 +46,13 @@ class DbHandler:
             DbHandler.db_connection.update_credits(chat_id, new_value)
             return True
 
-    # TODO add method increase downloads
+    @staticmethod
+    def increase_download(chat_id: int):
+        """
+        Increases the download count of the user with the given chat id
+        :param chat_id: the id of the user
+        :return:
+        """
+        DbHandler.db_connection.increase_download(chat_id)
+        logging.debug(f"Increased downloads of User with chat_id: {chat_id}")
 

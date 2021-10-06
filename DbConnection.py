@@ -87,7 +87,7 @@ class DbConnection:
 
     def increase_download(self, chat_id: int):
         """
-        When a user request a file this function is called and his download counter is increased
+        Increases the download count of the user with the given chat id
         :param chat_id: the id of the user
         :return:
         """
