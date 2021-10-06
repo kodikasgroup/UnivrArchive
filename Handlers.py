@@ -2,6 +2,7 @@ import logging
 import traceback
 
 import telegram
+from decouple import config
 from telegram import Update, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 
@@ -90,10 +91,53 @@ class Handlers:
         :param context:
         :return:
         """
-        logging.info("An Error Occurred: ")
+        logging.debug("An Error Occurred: ")
         traceback.print_tb(context.error.__traceback__)
         message = "Ci dispiace😞😞" \
                   "\nSembra si sia verificato un'errore perfavore riavvia il bot utilizzando il comando \/start"
-        context.bot.send_message(chat_id=update.callback_query.from_user.id,
-                                 text=message,
-                                 parse_mode=telegram.ParseMode.MARKDOWN_V2)
+        try:
+            context.bot.send_message(chat_id=update.callback_query.from_user.id,
+                                     text=message,
+                                     parse_mode=telegram.ParseMode.MARKDOWN_V2)
+        except AttributeError:
+            context.bot.send_message(chat_id=update.message.from_user.id,
+                                     text=message,
+                                     parse_mode=telegram.ParseMode.MARKDOWN_V2)
+
+    @staticmethod
+    def material_receiver_handler(update: Update, context: CallbackContext):
+        """
+        Handle the reception of the files sent by the users
+        :param update:
+        :param context:
+        :return:
+        """
+        id_channel_file = int(config('ID_CHANNEL_FILE'))
+        chat_id = update.message.from_user.id
+        username = update.message.from_user.username
+        file_id = update.message.message_id
+
+        user_message = "Il tuo file é stato inviato con successo, ti ringraziamo per la collaborazione" + \
+                       " a breve riceverai una nostra risposta"
+        channel_message = f"ID: {chat_id}\n" \
+                          f"Username: @{username}\n" \
+                          "Ha inviato :"
+
+        # send message to user
+        context.bot.send_message(
+            chat_id=chat_id,
+            text=user_message
+        )
+
+        # send message to channel
+        context.bot.send_message(
+            chat_id=id_channel_file,
+            text=channel_message
+        )
+
+        # forward file
+        context.bot.forward_message(
+            chat_id=id_channel_file,
+            from_chat_id=chat_id,
+            message_id=file_id
+        )
