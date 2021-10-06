@@ -11,10 +11,9 @@ from Utils import Utils
 class ExclusiveButtonHandler:
 
     @staticmethod
-    def file_button_handler(update, context, text, chat_id):
+    def file_button_handler(context, text, chat_id):
         """
 
-        :param update:
         :param context:
         :param text: callback data from the clicked button
         :param chat_id: the id of the chat where to send the message
@@ -25,9 +24,20 @@ class ExclusiveButtonHandler:
         path = "archive/" + unhashed_text
         price = unhashed_text.split('/')[-1].split('.')[0]
         price = int(price)
-        db_handler = DbHandler.get_instance()
+        if DbHandler.is_vip(chat_id):
+            Utils.send_file(context, path, chat_id)
+        else:
+            if DbHandler.get_credits(chat_id) >= price:
+                DbHandler.update_credits(chat_id, (-1 * price))
+                Utils.send_file(context, path, chat_id)
+            else:
+                message = "❌ ERRORE ❌\n" + \
+                          "Sembra tu non abbia abbastanza Crediti\n" + \
+                          "per visualizzare il tuo saldo attuale usa il comando /credits"
+                context.bot.send_message(chat_id=chat_id,
+                                         text=message)
 
-        # TODO complete method
+        # TODO fix errors
 
     @staticmethod
     def subject_button_handler(update: Update, context: CallbackContext, text: str, chat_id: int):

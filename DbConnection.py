@@ -71,5 +71,11 @@ class DbConnection:
         return self.__execute_select_query(query, chat_id)
 
     def update_credits(self, chat_id: int, value: int) -> None:
+        """
+        modifies the credits of the user with the given chat_id adding the given quantity
+        :param chat_id: the id of the user
+        :param value: the quantity of credits to add
+        :return:
+        """
         query = f"UPDATE Reserved SET Credit = {value} WHERE chat_id=={chat_id}"
         self.__execute_update_query(query)

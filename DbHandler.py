@@ -42,4 +42,3 @@ class DbHandler:
 
     # TODO add method increase downloads
 
-

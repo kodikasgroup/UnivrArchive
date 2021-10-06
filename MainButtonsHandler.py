@@ -130,26 +130,7 @@ class StartButtonHandler:
 
         path = "archive" + "/" + course_name + "/" + year_name + "/" + subject_name + "/" + subdir_name + '/' + file_name
 
-        file = FileHandler.get_file_id(path)
-        if file is None:
-            file = open(path, 'rb')
-            # transform bytes to megabyte
-            if os.path.getsize(path) / 1000000 > 7:
-                message = "OOOPS\.\.\.\. Questo è imbarazzante\.\.\.😞😞" \
-                          "\nSembra che il file che hai richiesto non sia ancora stato caricato nei ☁ server\.\.\.\." \
-                          "\npertanto sarà necessario un po' di tempo prima che ti arrivi \(10\-30 secondi\)☁"
-                context.bot.send_message(chat_id=chat_id,
-                                         text=message,
-                                         parse_mode=telegram.ParseMode.MARKDOWN_V2)
-
-        response = context.bot.send_document(
-            chat_id=chat_id,
-            document=file
-        )
-        FileHandler.add_file_id(
-            path=path,
-            file_id=response.document.file_id
-        )
+        Utils.send_file(context, path, chat_id)
 
     @staticmethod
     def back_button_handler(update: Update, context: CallbackContext, text: str):

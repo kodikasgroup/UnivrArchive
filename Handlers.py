@@ -64,7 +64,7 @@ class Handlers:
             elif '__subject' in text:
                 ExclusiveButtonHandler.subject_button_handler(update, context, text, chat_id)
             elif '__file' in text:
-                ExclusiveButtonHandler.file_button_handler(update, context, text, chat_id)
+                ExclusiveButtonHandler.file_button_handler(context, text, chat_id)
                 pass
             else:
                 # handle when the user click the EXCLUSIVE button
