@@ -84,3 +84,12 @@ class DbConnection:
         """
         query = f"UPDATE Reserved SET Credit = {value} WHERE chat_id=={chat_id}"
         self.__execute_update_query(query)
+
+    def increase_download(self, chat_id: int):
+        """
+        When a user request a file this function is called and his download counter is increased
+        :param chat_id: the id of the user
+        :return:
+        """
+        query = f"UPDATE Download SET n_download = n_download+1 WHERE chat_id=={chat_id}"
+        self.__execute_update_query(query)
