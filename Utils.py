@@ -44,16 +44,16 @@ class Utils:
         # TODO increase downloads
         file = FileHandler.get_file_id(path)
         if file is None:
-            with open(path, 'rb') as file:
-                # transform bytes to megabyte
-                # check if file size is greater than 7MB
-                if os.path.getsize(path) / 1000000 > 7:
-                    message = "OOOPS\.\.\.\. Questo è imbarazzante\.\.\.😞😞" \
-                              "\nSembra che il file che hai richiesto non sia ancora stato caricato nei ☁ server\.\.\.\." \
-                              "\npertanto sarà necessario un po' di tempo prima che ti arrivi \(10\-30 secondi\)☁"
-                    context.bot.send_message(chat_id=chat_id,
-                                             text=message,
-                                             parse_mode=telegram.ParseMode.MARKDOWN_V2)
+            file = open(path, 'rb')
+            # transform bytes to megabyte
+            # check if file size is greater than 7MB
+            if os.path.getsize(path) / 1000000 > 7:
+                message = "OOOPS\.\.\.\. Questo è imbarazzante\.\.\.😞😞" \
+                          "\nSembra che il file che hai richiesto non sia ancora stato caricato nei ☁ server\.\.\.\." \
+                          "\npertanto sarà necessario un po' di tempo prima che ti arrivi \(10\-30 secondi\)☁"
+                context.bot.send_message(chat_id=chat_id,
+                                         text=message,
+                                         parse_mode=telegram.ParseMode.MARKDOWN_V2)
 
         response = context.bot.send_document(
             chat_id=chat_id,

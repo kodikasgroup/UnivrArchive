@@ -12,7 +12,7 @@ class DbConnection:
         """
         path = 'db/UserLogDB.db'
         try:
-            self.conn = sqlite3.connect(path)
+            self.conn = sqlite3.connect(path, check_same_thread=False)
             logging.debug("Connected to DB!")
         except sqlite3.Error as error:
             logging.debug("An Error Occurred during db connection: ")
@@ -24,9 +24,14 @@ class DbConnection:
         :param query: the sql interrogation to execute
         :return:
         """
-        cur = self.conn.cursor()
-        cur.execute(query)
-        self.conn.commit()
+        try:
+            cur = self.conn.cursor()
+            cur.execute(query)
+            self.conn.commit()
+        except sqlite3.Error as error:
+            logging.debug("An Error Occurred during the execution of the following query:\n" +
+                          query)
+            logging.debug(f"{error}")
 
     def __execute_select_query(self, query: str, chat_id: int):
         """

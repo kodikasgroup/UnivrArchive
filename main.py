@@ -6,6 +6,7 @@ import logging
 # set logging
 logging.basicConfig(
     level=logging.DEBUG,
+    filename='output.log',
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
@@ -22,6 +23,9 @@ button_handler = CallbackQueryHandler(Handlers.inline_button_handler)
 dispatcher.add_handler(start_handler)
 dispatcher.add_handler(button_handler)
 dispatcher.add_error_handler(Handlers.error_handler)
+
+log = logging.getLogger()
+log.setLevel(logging.DEBUG)
 
 # Start Graphics
 print("####################################")

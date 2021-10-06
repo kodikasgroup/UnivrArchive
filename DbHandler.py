@@ -31,6 +31,12 @@ class DbHandler:
 
     @staticmethod
     def update_credits(chat_id: int, value: int) -> bool:
+        """"
+        modifies the credits of the user with the given chat_id adding the given quantity
+        :param chat_id: the id of the user
+        :param value: the quantity of credits to add
+        :return:
+        """
         curr_value = DbHandler.db_connection.get_credits(chat_id)
         if value < 0 and (-1 * value) > curr_value:
             logging.debug(f"Can't subtract {-1 * value} credits to User with chat_id: {chat_id}")
