@@ -145,6 +145,26 @@ class Handlers:
         )
 
     @staticmethod
+    def feedback_handler(update: Update, context: CallbackContext):
+        """
+        Handles the feedback command
+        :param update:
+        :param context:
+        :return:
+        """
+        id_channel_feedback = config('ID_CHANNEL_FEEDBACK')
+        chat_id = update.message.from_user.id
+        username = update.message.from_user.username
+        user_message = update.message.text
+        user_message = user_message.split('/feedback ')[1]
+        message = f"ID:{chat_id} User:@{username}\n" + user_message
+
+        context.bot.send_message(
+            chat_id=id_channel_feedback,
+            text=message
+        )
+
+    @staticmethod
     def error_handler(update: Update, context: CallbackContext):
         """
         Log the error and send a telegram message to notify the developer.
