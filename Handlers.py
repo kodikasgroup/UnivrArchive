@@ -6,6 +6,7 @@ from decouple import config
 from telegram import Update, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 
+from DbHandler import DbHandler
 from ExclusiveButtonHandler import ExclusiveButtonHandler
 from MainButtonsGenerator import ButtonGenerator
 from MainButtonsHandler import StartButtonHandler
@@ -84,27 +85,6 @@ class Handlers:
                 StartButtonHandler.file_button_handler(update, context, text, chat_id)
 
     @staticmethod
-    def error_handler(update: Update, context: CallbackContext):
-        """
-        Log the error and send a telegram message to notify the developer.
-        :param update:
-        :param context:
-        :return:
-        """
-        logging.debug("An Error Occurred: ")
-        traceback.print_tb(context.error.__traceback__)
-        message = "Ci dispiace😞😞" \
-                  "\nSembra si sia verificato un'errore perfavore riavvia il bot utilizzando il comando \/start"
-        try:
-            context.bot.send_message(chat_id=update.callback_query.from_user.id,
-                                     text=message,
-                                     parse_mode=telegram.ParseMode.MARKDOWN_V2)
-        except AttributeError:
-            context.bot.send_message(chat_id=update.message.from_user.id,
-                                     text=message,
-                                     parse_mode=telegram.ParseMode.MARKDOWN_V2)
-
-    @staticmethod
     def material_receiver_handler(update: Update, context: CallbackContext):
         """
         Handle the reception of the files sent by the users
@@ -121,6 +101,7 @@ class Handlers:
             chat_id = update.callback_query.from_user.id
             username = update.callback_query.from_user.username
             file_id = update.callback_query.message.message_id
+
         user_message = "Il tuo file é stato inviato con successo, ti ringraziamo per la collaborazione" + \
                        " a breve riceverai una nostra risposta"
         channel_message = f"ID: {chat_id}\n" \
@@ -145,3 +126,41 @@ class Handlers:
             from_chat_id=chat_id,
             message_id=file_id
         )
+
+    @staticmethod
+    def credits_handler(update: Update, context: CallbackContext):
+        """
+        Send the user a message showing the number of credits that the user has
+        :param update:
+        :param context:
+        :return:
+        """
+        chat_id = update.message.from_user.id
+        user_credits = DbHandler.get_credits(chat_id)
+        message = f"⭐️Crediti -> {user_credits}"
+
+        context.bot.send_message(
+            chat_id=chat_id,
+            text=message
+        )
+
+    @staticmethod
+    def error_handler(update: Update, context: CallbackContext):
+        """
+        Log the error and send a telegram message to notify the developer.
+        :param update:
+        :param context:
+        :return:
+        """
+        logging.debug("An Error Occurred: ")
+        traceback.print_tb(context.error.__traceback__)
+        message = "Ci dispiace😞😞" \
+                  "\nSembra si sia verificato un'errore perfavore riavvia il bot utilizzando il comando \/start"
+        try:
+            context.bot.send_message(chat_id=update.callback_query.from_user.id,
+                                     text=message,
+                                     parse_mode=telegram.ParseMode.MARKDOWN_V2)
+        except AttributeError:
+            context.bot.send_message(chat_id=update.message.from_user.id,
+                                     text=message,
+                                     parse_mode=telegram.ParseMode.MARKDOWN_V2)

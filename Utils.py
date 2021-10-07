@@ -55,6 +55,8 @@ class Utils:
         :param chat_id:
         :return:
         """
+        # TODO: update state inside User table
+
         file = FileHandler.get_file_id(path)
         if file is None:
             file = open(path, 'rb')

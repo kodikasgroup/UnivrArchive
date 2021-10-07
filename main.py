@@ -21,10 +21,12 @@ dispatcher = updater.dispatcher
 
 # handler for start command
 start_handler = CommandHandler('start', Handlers.start_handler)
+credits_handler = CommandHandler('credits', Handlers.credits_handler)
 button_handler = CallbackQueryHandler(Handlers.inline_button_handler)
 file_handler = MessageHandler(Filters.document, Handlers.material_receiver_handler)
 
 dispatcher.add_handler(start_handler)
+dispatcher.add_handler(credits_handler)
 dispatcher.add_handler(button_handler)
 dispatcher.add_handler(file_handler)
 dispatcher.add_error_handler(Handlers.error_handler)
