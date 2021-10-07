@@ -34,6 +34,12 @@ class Utils:
 
     @staticmethod
     def delete_last_message(update: Update, context: CallbackContext):
+        """
+
+        :param update:
+        :param context:
+        :return:
+        """
         message_id = update.callback_query.message.message_id
         chat_id = update.callback_query.from_user.id
 
@@ -42,6 +48,13 @@ class Utils:
 
     @staticmethod
     def send_file(context, path, chat_id):
+        """
+
+        :param context:
+        :param path:
+        :param chat_id:
+        :return:
+        """
         file = FileHandler.get_file_id(path)
         if file is None:
             file = open(path, 'rb')
