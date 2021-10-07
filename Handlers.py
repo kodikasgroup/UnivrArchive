@@ -112,11 +112,15 @@ class Handlers:
         :param context:
         :return:
         """
-        id_channel_file = int(config('ID_CHANNEL_FILE'))
-        chat_id = update.message.from_user.id
-        username = update.message.from_user.username
-        file_id = update.message.message_id
-
+        id_channel_file = config('ID_CHANNEL_FILE')
+        try:
+            chat_id = update.message.from_user.id
+            username = update.message.from_user.username
+            file_id = update.message.message_id
+        except AttributeError:
+            chat_id = update.callback_query.from_user.id
+            username = update.callback_query.from_user.username
+            file_id = update.callback_query.message.message_id
         user_message = "Il tuo file é stato inviato con successo, ti ringraziamo per la collaborazione" + \
                        " a breve riceverai una nostra risposta"
         channel_message = f"ID: {chat_id}\n" \
