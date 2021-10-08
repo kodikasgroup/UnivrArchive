@@ -208,6 +208,24 @@ class Handlers:
             )
 
     @staticmethod
+    def stats_handler(update: Update, context: CallbackContext):
+        """
+        Handles the stats command that sends a message containing bot stats
+        :param update:
+        :param context:
+        :return:
+        """
+        chat_id = update.message.from_user.id
+        if chat_id in Handlers.rootUsers:
+            data = DbHandler.get_stats()
+            message = f"Total Download = {data[0]}\n" \
+                      f"Total User = {data[1]}"
+            context.bot.send_message(
+                chat_id=chat_id,
+                text=message
+            )
+
+    @staticmethod
     def error_handler(update: Update, context: CallbackContext):
         """
         Log the error and send a telegram message to notify the developer.

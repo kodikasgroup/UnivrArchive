@@ -84,3 +84,17 @@ class DbHandler:
         # check if user already exists
         if not DbHandler.db_connection.contains(chat_id):
             DbHandler.db_connection.add_user(chat_id, f_name, username, today)
+
+    @staticmethod
+    def get_stats() -> tuple:
+        """
+        queries the Download table and returns the number of downloads
+        :return: a tuple containing the total number of downloads and the total number of users
+        """
+        data = DbHandler.db_connection.get_stats()
+        downloads = 0
+        user_count = 0
+        for _, d in data:
+            downloads += d
+            user_count += 1
+        return downloads, user_count

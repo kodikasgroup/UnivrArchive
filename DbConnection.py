@@ -134,5 +134,21 @@ class DbConnection:
         return result
 
     def add_user(self, chat_id: int, f_name: str, username: str, today: datetime):
+        """
+        insert a user data into the User table
+        :param chat_id: the id of the user
+        :param f_name: user first name
+        :param username: the username
+        :param today: current date and time
+        :return:
+        """
         query = "INSERT INTO User VALUES (?, ?, ?, ?)"
         self.__execute__query(query, (chat_id, f_name, username, today))
+
+    def get_stats(self):
+        """
+        retrieves all data from download table
+        :return:
+        """
+        query = "SELECT * FROM Download"
+        return self.__execute_select_query(query)
