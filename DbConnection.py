@@ -37,22 +37,26 @@ class DbConnection:
                           query)
             logging.debug(f"{error}")
 
-    def __execute_select_query(self, query: str, chat_id: int):
+    def __execute_select_query(self, query: str, *args):
         """
         executes the given query and then returns the result of the execution
         :param query: the sql interrogation to execute
-        :param chat_id: the id of the user
         :return:
         """
         cur = self.conn.cursor()
-        cur.execute(query)
+        if len(args) != 0:
+            cur.execute(query, args)
+        else:
+            cur.execute(query)
         result = cur.fetchall()
         if result is None:
-            logging.debug(f"ERROR invalid chat id: {chat_id}")
+            logging.debug(f"ERROR invalid query:\n" + query)
             return 0
         else:
             if len(result) == 1:
                 return result[0][0]
+            else:
+                return result
 
     @staticmethod
     def get_instance():
@@ -68,7 +72,7 @@ class DbConnection:
         :return:
         """
         query = f"SELECT Vip FROM Reserved WHERE chat_id=={chat_id}"
-        return self.__execute_select_query(query, chat_id)
+        return self.__execute_select_query(query)
 
     def get_credits(self, chat_id: int) -> int:
         """
@@ -77,7 +81,7 @@ class DbConnection:
         :return:
         """
         query = f"SELECT Credit FROM Reserved WHERE chat_id=={chat_id}"
-        return self.__execute_select_query(query, chat_id)
+        return self.__execute_select_query(query)
 
     def update_credits(self, chat_id: int, value: int) -> None:
         """
@@ -117,3 +121,14 @@ class DbConnection:
         query = f"SELECT * FROM User WHERE chat_id=={chat_id}"
         result = self.__execute_select_query(query, chat_id)
         return result is not None
+
+    def get_chat_id(self, username: str) -> int:
+        """
+        Given a username checks into the db and
+        returns the chat id corresponding
+        :param username: the username
+        :return:
+        """
+        query = f"SELECT chat_id FROM User WHERE username==?"
+        result = self.__execute_select_query(query, username)
+        return result

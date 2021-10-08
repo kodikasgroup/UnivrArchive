@@ -67,3 +67,19 @@ class DbHandler:
         today = datetime.now()
         today = today.replace(microsecond=0)
         DbHandler.db_connection.update_state(chat_id, today)
+
+    @staticmethod
+    def add_user(**kwargs):
+        """
+
+        :param kwargs:
+        :return:
+        """
+        chat_id = None
+        if "chat_id" in kwargs:
+            chat_id = kwargs["chat_id"]
+        elif "username" in kwargs:
+            pass
+        else:
+            logging.debug("Error no Argument passed to add_user function")
+            return
