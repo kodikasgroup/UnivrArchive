@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 from DbConnection import DbConnection
 
@@ -58,4 +59,11 @@ class DbHandler:
 
     @staticmethod
     def update_state(chat_id: int):
-        DbHandler.db_connection.update_state(chat_id)
+        """
+        updates the state column inside the User table with the current date and time
+        :param chat_id: the id of the user
+        :return:
+        """
+        today = datetime.now()
+        today = today.replace(microsecond=0)
+        DbHandler.db_connection.update_state(chat_id, today)

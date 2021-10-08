@@ -98,13 +98,22 @@ class DbConnection:
         query = f"UPDATE Download SET n_download = n_download+1 WHERE chat_id=={chat_id}"
         self.__execute_update_query(query)
 
-    def update_state(self, chat_id: int):
+    def update_state(self, chat_id: int, today: datetime):
         """
-
-        :param chat_id:
+        updates the state column inside the User table with the current date and time
+        :param today: current date and time
+        :param chat_id: the id of the user
         :return:
         """
-        today = datetime.now()
-        today = today.replace(microsecond=0)
         query = "UPDATE User SET state = ? WHERE chat_id==?"
         self.__execute_update_query(query, today, chat_id)
+
+    def contains(self, chat_id: int) -> bool:
+        """
+        Checks if the user is present into the db
+        :param chat_id: the id of the user
+        :return:
+        """
+        query = f"SELECT * FROM User WHERE chat_id=={chat_id}"
+        result = self.__execute_select_query(query, chat_id)
+        return result is not None
