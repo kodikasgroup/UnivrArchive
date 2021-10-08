@@ -55,7 +55,6 @@ class Utils:
         :param chat_id:
         :return:
         """
-        # TODO: update state inside User table
 
         file = FileHandler.get_file_id(path)
         if file is None:
@@ -79,3 +78,4 @@ class Utils:
             file_id=response.document.file_id
         )
         DbHandler.increase_download(chat_id)
+        DbHandler.update_state(chat_id)

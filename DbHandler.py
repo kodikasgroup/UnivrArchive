@@ -56,3 +56,6 @@ class DbHandler:
         DbHandler.db_connection.increase_download(chat_id)
         logging.debug(f"Increased downloads of User with chat_id: {chat_id}")
 
+    @staticmethod
+    def update_state(chat_id: int):
+        DbHandler.db_connection.update_state(chat_id)

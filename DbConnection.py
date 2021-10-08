@@ -1,5 +1,6 @@
 import logging
 import sqlite3
+from datetime import datetime
 
 
 class DbConnection:
@@ -18,7 +19,7 @@ class DbConnection:
             logging.debug("An Error Occurred during db connection: ")
             logging.debug(f"{error}")
 
-    def __execute_update_query(self, query: str) -> None:
+    def __execute_update_query(self, query: str, *args) -> None:
         """
         executes the given update query
         :param query: the sql interrogation to execute
@@ -26,7 +27,10 @@ class DbConnection:
         """
         try:
             cur = self.conn.cursor()
-            cur.execute(query)
+            if len(args) != 0:
+                cur.execute(query, args)
+            else:
+                cur.execute(query)
             self.conn.commit()
         except sqlite3.Error as error:
             logging.debug("An Error Occurred during the execution of the following query:\n" +
@@ -93,3 +97,14 @@ class DbConnection:
         """
         query = f"UPDATE Download SET n_download = n_download+1 WHERE chat_id=={chat_id}"
         self.__execute_update_query(query)
+
+    def update_state(self, chat_id: int):
+        """
+
+        :param chat_id:
+        :return:
+        """
+        today = datetime.now()
+        today = today.replace(microsecond=0)
+        query = "UPDATE User SET state = ? WHERE chat_id==?"
+        self.__execute_update_query(query, today, chat_id)
