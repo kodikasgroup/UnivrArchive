@@ -69,17 +69,18 @@ class DbHandler:
         DbHandler.db_connection.update_state(chat_id, today)
 
     @staticmethod
-    def add_user(**kwargs):
+    def add_user(chat_id: int, username: str, f_name: str):
         """
-
-        :param kwargs:
+        check if the user is present in the database if not
+        add the user to it
+        :param f_name: user first name
+        :param chat_id: the id of user
+        :param username: username
         :return:
         """
-        chat_id = None
-        if "chat_id" in kwargs:
-            chat_id = kwargs["chat_id"]
-        elif "username" in kwargs:
-            pass
-        else:
-            logging.debug("Error no Argument passed to add_user function")
-            return
+        today = datetime.now()
+        today = today.replace(microsecond=0)
+
+        # check if user already exists
+        if not DbHandler.db_connection.contains(chat_id):
+            DbHandler.db_connection.add_user(chat_id, f_name, username, today)

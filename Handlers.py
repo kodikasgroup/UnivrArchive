@@ -28,6 +28,10 @@ class Handlers:
 
         chat_id = update.message.chat_id
         first_name = update.message.chat.first_name
+        username = update.message.from_user.username
+
+        DbHandler.add_user(chat_id, username, first_name)
+
         message = Utils.get_start_message(opening="Benvenuto/a", name=first_name)
         doc = open('resources/intro.gif', 'rb')
         buttons = ButtonGenerator.get_start_buttons()

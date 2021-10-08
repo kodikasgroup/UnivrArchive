@@ -19,16 +19,16 @@ class DbConnection:
             logging.debug("An Error Occurred during db connection: ")
             logging.debug(f"{error}")
 
-    def __execute_update_query(self, query: str, *args) -> None:
+    def __execute__query(self, query: str, *args) -> None:
         """
-        executes the given update query
+        executes the given query
         :param query: the sql interrogation to execute
         :return:
         """
         try:
             cur = self.conn.cursor()
             if len(args) != 0:
-                cur.execute(query, args)
+                cur.execute(query, *args)
             else:
                 cur.execute(query)
             self.conn.commit()
@@ -91,7 +91,7 @@ class DbConnection:
         :return:
         """
         query = f"UPDATE Reserved SET Credit = {value} WHERE chat_id=={chat_id}"
-        self.__execute_update_query(query)
+        self.__execute__query(query)
 
     def increase_download(self, chat_id: int):
         """
@@ -100,7 +100,7 @@ class DbConnection:
         :return:
         """
         query = f"UPDATE Download SET n_download = n_download+1 WHERE chat_id=={chat_id}"
-        self.__execute_update_query(query)
+        self.__execute__query(query)
 
     def update_state(self, chat_id: int, today: datetime):
         """
@@ -110,7 +110,7 @@ class DbConnection:
         :return:
         """
         query = "UPDATE User SET state = ? WHERE chat_id==?"
-        self.__execute_update_query(query, today, chat_id)
+        self.__execute__query(query, today, chat_id)
 
     def contains(self, chat_id: int) -> bool:
         """
@@ -119,8 +119,8 @@ class DbConnection:
         :return:
         """
         query = f"SELECT * FROM User WHERE chat_id=={chat_id}"
-        result = self.__execute_select_query(query, chat_id)
-        return result is not None
+        result = self.__execute_select_query(query)
+        return result is not None and not len(result) == 0
 
     def get_chat_id(self, username: str) -> int:
         """
@@ -132,3 +132,7 @@ class DbConnection:
         query = f"SELECT chat_id FROM User WHERE username==?"
         result = self.__execute_select_query(query, username)
         return result
+
+    def add_user(self, chat_id: int, f_name: str, username: str, today: datetime):
+        query = "INSERT INTO User VALUES (?, ?, ?, ?)"
+        self.__execute__query(query, (chat_id, f_name, username, today))
