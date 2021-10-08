@@ -23,6 +23,7 @@ dispatcher = updater.dispatcher
 start_handler = CommandHandler('start', Handlers.start_handler)
 credits_handler = CommandHandler('credits', Handlers.credits_handler)
 feedback_handler = CommandHandler('feedback', Handlers.feedback_handler)
+root_handler = CommandHandler('root', Handlers.root_handler)
 
 button_handler = CallbackQueryHandler(Handlers.inline_button_handler)
 file_handler = MessageHandler(Filters.document, Handlers.material_receiver_handler)
@@ -30,6 +31,7 @@ file_handler = MessageHandler(Filters.document, Handlers.material_receiver_handl
 dispatcher.add_handler(start_handler)
 dispatcher.add_handler(credits_handler)
 dispatcher.add_handler(feedback_handler)
+dispatcher.add_handler(root_handler)
 
 dispatcher.add_handler(button_handler)
 dispatcher.add_handler(file_handler)

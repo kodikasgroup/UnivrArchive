@@ -14,6 +14,7 @@ from Utils import Utils
 
 
 class Handlers:
+    rootUsers = []
 
     @staticmethod
     def start_handler(update: Update, context: CallbackContext) -> None:
@@ -147,7 +148,8 @@ class Handlers:
     @staticmethod
     def feedback_handler(update: Update, context: CallbackContext):
         """
-        Handles the feedback command
+        Handles the feedback command, that copies the message sent byt he user
+        and sent it to a specific channel
         :param update:
         :param context:
         :return:
@@ -163,6 +165,43 @@ class Handlers:
             chat_id=id_channel_feedback,
             text=message
         )
+
+    @staticmethod
+    def root_handler(update: Update, context: CallbackContext):
+        """
+        Handles the root command that checks if the password is correct then
+        it adds the user chat id to a list
+        :param update:
+        :param context:
+        :return:
+        """
+        expected_password = config('ROOT_PASSWORD')
+        chat_id = update.message.from_user.id
+        user_message = update.message.text
+        password = user_message.split('/root ')
+        if len(password) > 1:
+            password = password[1]
+        else:
+            password = ""
+        message = "⚠️NOW YOU ARE ROOT⚠️\n" + \
+                  "Available command:\n" \
+                  "\t/givecredits @Username#numberofcredits\n" \
+                  "\t/givecredits Id#numberofcredits\n" \
+                  "\t/givecredits All#numberofcredits\n" \
+                  "\t/givevip @Username\n" \
+                  "\t/stats\n" \
+                  "\t/sendmessage all#text\n" \
+                  "\t/sendmessage id#text\n" \
+                  "\t/sendmessage @username#text\n" \
+                  "\t/remove @username\n" \
+                  "\t/remove id\n"
+
+        if expected_password == password:
+            Handlers.rootUsers.append(chat_id)
+            context.bot.send_message(
+                chat_id=chat_id,
+                text=message
+            )
 
     @staticmethod
     def error_handler(update: Update, context: CallbackContext):
