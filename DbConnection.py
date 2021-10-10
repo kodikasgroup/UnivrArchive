@@ -28,7 +28,7 @@ class DbConnection:
         try:
             cur = self.conn.cursor()
             if len(args) != 0:
-                cur.execute(query, *args)
+                cur.execute(query, args)
             else:
                 cur.execute(query)
             self.conn.commit()
@@ -50,13 +50,9 @@ class DbConnection:
             cur.execute(query)
         result = cur.fetchall()
         if result is None:
-            logging.debug(f"ERROR invalid query:\n" + query)
-            return 0
+            raise AttributeError("the given query or parameters are not correct")
         else:
-            if len(result) == 1:
-                return result[0][0]
-            else:
-                return result
+            return result
 
     @staticmethod
     def get_instance():
@@ -72,7 +68,8 @@ class DbConnection:
         :return:
         """
         query = f"SELECT Vip FROM Reserved WHERE chat_id=={chat_id}"
-        return self.__execute_select_query(query)
+        result = self.__execute_select_query(query)
+        return result[0][0]
 
     def get_credits(self, chat_id: int) -> int:
         """
@@ -81,7 +78,8 @@ class DbConnection:
         :return:
         """
         query = f"SELECT Credit FROM Reserved WHERE chat_id=={chat_id}"
-        return self.__execute_select_query(query)
+        result = self.__execute_select_query(query)
+        return result[0][0]
 
     def update_credits(self, chat_id: int, value: int) -> None:
         """
@@ -131,7 +129,7 @@ class DbConnection:
         """
         query = f"SELECT chat_id FROM User WHERE username==?"
         result = self.__execute_select_query(query, username)
-        return result
+        return result[0][0]
 
     def add_user(self, chat_id: int, f_name: str, username: str, today: datetime):
         """
