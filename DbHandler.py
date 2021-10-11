@@ -20,6 +20,16 @@ class DbHandler:
         return value
 
     @staticmethod
+    def add_vip(chat_id: int):
+        """
+        Set Vip with the given chat id
+        :param chat_id: the id of the user
+        :return:
+        """
+        DbHandler.db_connection.add_vip(chat_id)
+        logging.debug(f"User with chat_id: {chat_id}, has VIP now")
+
+    @staticmethod
     def get_credits(chat_id: int) -> int:
         """
         retrieves the number of credits of the given chat id
@@ -31,13 +41,17 @@ class DbHandler:
         return value
 
     @staticmethod
-    def update_credits(chat_id: int, value: int) -> bool:
+    def update_credits(value: int, **kwargs) -> bool:
         """"
         modifies the credits of the user with the given chat_id adding the given quantity
-        :param chat_id: the id of the user
         :param value: the quantity of credits to add
+        :param kwargs: the id of the user or username syntax ' chat_id=XX or user_id=XX '
         :return:
         """
+        if kwargs.__contains__("chat_id"):
+            chat_id = kwargs.get("chat_id")
+        else:
+            chat_id = DbHandler.db_connection.get_chat_id(kwargs.get("user_id"))
         curr_value = DbHandler.db_connection.get_credits(chat_id)
         if value < 0 and (-1 * value) > curr_value:
             logging.debug(f"Can't subtract {-1 * value} credits to User with chat_id: {chat_id}")
@@ -45,7 +59,8 @@ class DbHandler:
         else:
             new_value = curr_value + value
             DbHandler.db_connection.update_credits(chat_id, new_value)
-            return True
+            return chat_id
+
 
     @staticmethod
     def increase_download(chat_id: int):

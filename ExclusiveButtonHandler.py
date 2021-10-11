@@ -28,7 +28,7 @@ class ExclusiveButtonHandler:
             Utils.send_file(context, path, chat_id)
         else:
             if DbHandler.get_credits(chat_id) >= price:
-                DbHandler.update_credits(chat_id, (-1 * price))
+                update_credits(chat_id, (-1 * price))
                 Utils.send_file(context, path, chat_id)
             else:
                 message = "❌ ERRORE ❌\n" + \

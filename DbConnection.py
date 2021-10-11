@@ -143,6 +143,16 @@ class DbConnection:
         query = "INSERT INTO User VALUES (?, ?, ?, ?)"
         self.__execute__query(query, (chat_id, f_name, username, today))
 
+    def add_vip(self, chat_id: int) -> None:
+        """
+        modifies the status vip of the user with the given chat_id
+        :param chat_id: the id of the user
+        :param value:
+        :return:
+        """
+        query = f"UPDATE Reserved SET Credit = {1} WHERE chat_id=={chat_id}"
+        self.__execute__query(query)
+
     def get_stats(self):
         """
         retrieves all data from download table

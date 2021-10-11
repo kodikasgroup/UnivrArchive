@@ -226,6 +226,124 @@ class Handlers:
             )
 
     @staticmethod
+    def givecredits_handler(update: Update, context: CallbackContext):
+        """
+        Handles the givecredits command that set credits and send message_to_user
+        :param update:
+        :param context:
+        :return:
+        """
+        chat_id = update.message.from_user.id
+        if chat_id in Handlers.rootUsers:
+            user_message = update.message.text
+            string = user_message.split('/givecredits ')
+            type =  string[1].split('#')
+            message_to_user = "You got {} check your credits using the command: /credits".format(type[0])
+            message_to_root = "Credits added"
+            if type[0].__contains__('@'):
+                """By USERNAME"""
+                user_chat= DbHandler.update_credits(int(type[1]), user_id=type[0].replace("@", ""))
+                if not user_chat:
+                    context.bot.send_message(
+                        chat_id=user_chat,
+                        text=message_to_user
+                    )
+                    context.bot.send_message(
+                        chat_id=chat_id,
+                        text=message_to_root
+                    )
+            elif type[0].__contains__('all'):
+                """ALL USER  """
+                """TODO : FUNCTION FOR ALL USER"""
+            else:
+                """ID code """
+                user_chat = DbHandler.update_credits(int(type[1]), user_id=int(type[0]))
+                if not user_chat:
+                    context.bot.send_message(
+                        chat_id=user_chat,
+                        text=message_to_user
+                    )
+                    context.bot.send_message(
+                        chat_id=chat_id,
+                        text=message_to_root
+                    )
+
+
+    @staticmethod
+    def givevip_handler(update: Update, context: CallbackContext):
+        """
+        Handles the givecredits command that set credits and send message
+        :param update:
+        :param context:
+        :return:
+        """
+        chat_id = update.message.from_user.id
+        if chat_id in Handlers.rootUsers:
+            user_message = update.message.text
+            message_to_user = "you are now Vip!!!"
+            message_to_root = "{} it's now Vip"
+            string = user_message.split('/givevip')
+            if string[1].__contains__('@'):
+                """TODO: Function querry update by User"""
+                ## DbHandler.add_vip()
+                context.bot.send_message(
+                    chat_id=chat_id,
+                    text=message_to_root.format(string[1])
+                )
+            else:
+                """Function querry by ID"""
+                DbHandler.add_vip(int(string[1]))
+                context.bot.send_message(
+                    chat_id=int(string[1]),
+                    text=message_to_user
+                )
+                context.bot.send_message(
+                    chat_id=chat_id,
+                    text=message_to_root.format(string[1])
+                )
+
+    @staticmethod
+    def sendmessage_handler(update: Update, context: CallbackContext):
+        """
+        Handles the givecredits command that set credits and send message
+        :param update:
+        :param context:
+        :return:
+        """
+        chat_id = update.message.from_user.id
+        if chat_id in Handlers.rootUsers:
+            user_message = update.message.text
+            string = user_message.split('/sendmessage')
+            type =  string[1].split('# ')
+            if type[0].__contains__('@'):
+                """TODO: Function querry update by User"""
+
+            elif type[0].__contains__('all'):
+                """TODO: Function querry for all """
+            else :
+                """TODO : Function querry by ID"""
+
+    @staticmethod
+    def remove_handler(update: Update, context: CallbackContext):
+        """
+        Handles the givecredits command that set credits and send message
+        :param update:
+        :param context:
+        :return:
+        """
+        chat_id = update.message.from_user.id
+        if chat_id in Handlers.rootUsers:
+            user_message = update.message.text
+            string = user_message.split('/sendmessage')
+            type =  string[1].split('# ')
+            if type[0].__contains__('@'):
+                """TODO: Function querry update by User"""
+            elif type[0].__contains__('all'):
+                """TODO: Function querry for all """
+            else :
+                """TODO : Function querry by ID"""
+
+    @staticmethod
     def error_handler(update: Update, context: CallbackContext):
         """
         Log the error and send a telegram message to notify the developer.

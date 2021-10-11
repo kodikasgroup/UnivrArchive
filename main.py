@@ -23,8 +23,13 @@ dispatcher = updater.dispatcher
 start_handler = CommandHandler('start', Handlers.start_handler)
 credits_handler = CommandHandler('credits', Handlers.credits_handler)
 feedback_handler = CommandHandler('feedback', Handlers.feedback_handler)
+# section handlers root mode
 root_handler = CommandHandler('root', Handlers.root_handler)
 stats_handler = CommandHandler('stats', Handlers.stats_handler)
+givecredits_handler = CommandHandler('givecredits', Handlers.givecredits_handler)
+givevip_handler = CommandHandler('givevip', Handlers.givevip_handler)
+sendmessage_handler = CommandHandler('sendmessage', Handlers.sendmessage_handler)
+remove_handler = CommandHandler('remove', Handlers.remove_handler)
 
 button_handler = CallbackQueryHandler(Handlers.inline_button_handler)
 file_handler = MessageHandler(Filters.document, Handlers.material_receiver_handler)
@@ -32,8 +37,13 @@ file_handler = MessageHandler(Filters.document, Handlers.material_receiver_handl
 dispatcher.add_handler(start_handler)
 dispatcher.add_handler(credits_handler)
 dispatcher.add_handler(feedback_handler)
+
 dispatcher.add_handler(root_handler)
 dispatcher.add_handler(stats_handler)
+dispatcher.add_handler(givecredits_handler)
+dispatcher.add_handler(givevip_handler)
+dispatcher.add_handler(sendmessage_handler)
+dispatcher.add_handler(remove_handler)
 
 dispatcher.add_handler(button_handler)
 dispatcher.add_handler(file_handler)
