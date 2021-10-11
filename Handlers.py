@@ -238,12 +238,12 @@ class Handlers:
             user_message = update.message.text
             string = user_message.split('/givecredits ')
             type =  string[1].split('#')
-            message_to_user = "You got {} check your credits using the command: /credits".format(type[0])
+            message_to_user = "You got {} check your credits using the command: /credits".format(type[1])
             message_to_root = "Credits added"
             if type[0].__contains__('@'):
                 """By USERNAME"""
                 user_chat= DbHandler.update_credits(int(type[1]), user_id=type[0].replace("@", ""))
-                if not user_chat:
+                if user_chat > 0:
                     context.bot.send_message(
                         chat_id=user_chat,
                         text=message_to_user
@@ -254,7 +254,7 @@ class Handlers:
                     )
             elif type[0].__contains__('all'):
                 """ALL USER  """
-                """TODO : FUNCTION FOR ALL USER"""
+                DbHandler.update_credits_all(int(type[1]))
             else:
                 """ID code """
                 user_chat = DbHandler.update_credits(int(type[1]), user_id=int(type[0]))
@@ -314,14 +314,44 @@ class Handlers:
         if chat_id in Handlers.rootUsers:
             user_message = update.message.text
             string = user_message.split('/sendmessage')
-            type =  string[1].split('# ')
+            type =  string[1].split('#')
+            message_to_user = type[1]
+            message_to_root = "The message has send to {}"
             if type[0].__contains__('@'):
-                """TODO: Function querry update by User"""
+                """By Username"""
+                user_id = DbHandler.get_id(type[0])
+                context.bot.send_message(
+                    chat_id=user_id,
+                    text=message_to_user
+                )
+                context.bot.send_message(
+                    chat_id=chat_id,
+                    text=message_to_root.format(user_id)
+                )
 
             elif type[0].__contains__('all'):
-                """TODO: Function querry for all """
-            else :
+                """ALL USER """
+                all_id = DbHandler.get_all_id()
+                for id in all_id:
+                    context.bot.send_message(
+                        chat_id=int(id),
+                        text=message_to_user
+                    )
+                context.bot.send_message(
+                    chat_id=chat_id,
+                    text=message_to_root.format(len(all_id))
+                )
+
+            else:
                 """TODO : Function querry by ID"""
+                context.bot.send_message(
+                    chat_id=int(type[0]),
+                    text=message_to_user
+                )
+                context.bot.send_message(
+                    chat_id=chat_id,
+                    text=message_to_root.format(type[0])
+                )
 
     @staticmethod
     def remove_handler(update: Update, context: CallbackContext):
@@ -334,14 +364,13 @@ class Handlers:
         chat_id = update.message.from_user.id
         if chat_id in Handlers.rootUsers:
             user_message = update.message.text
-            string = user_message.split('/sendmessage')
-            type =  string[1].split('# ')
-            if type[0].__contains__('@'):
-                """TODO: Function querry update by User"""
-            elif type[0].__contains__('all'):
-                """TODO: Function querry for all """
-            else :
-                """TODO : Function querry by ID"""
+            string = user_message.split('/remove')
+            if string[1].__contains__('@'):
+                """by User"""
+                DbHandler.remove_id(user_id=string[1].replace("@", ""))
+            else:
+                """by ID"""
+                DbHandler.remove_id(chat_id=string[1])
 
     @staticmethod
     def error_handler(update: Update, context: CallbackContext):

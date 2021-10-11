@@ -91,6 +91,10 @@ class DbConnection:
         query = f"UPDATE Reserved SET Credit = {value} WHERE chat_id=={chat_id}"
         self.__execute__query(query)
 
+    def update_all_credits(self, value: int):
+        query = f"UPDATE Reserved SET Credit = Credit+{value}"
+        self.__execute__query(query)
+
     def increase_download(self, chat_id: int):
         """
         Increases the download count of the user with the given chat id
@@ -131,6 +135,11 @@ class DbConnection:
         result = self.__execute_select_query(query, username)
         return result[0][0]
 
+    def get_all_chat_id(self) -> list:
+        query = f"SELECT chat_id FROM User"
+        result = self.__execute_select_query(query)
+        return result
+
     def add_user(self, chat_id: int, f_name: str, username: str, today: datetime):
         """
         insert a user data into the User table
@@ -150,7 +159,7 @@ class DbConnection:
         :param value:
         :return:
         """
-        query = f"UPDATE Reserved SET Credit = {1} WHERE chat_id=={chat_id}"
+        query = f"UPDATE Reserved SET Vip = 1 WHERE chat_id=={chat_id}"
         self.__execute__query(query)
 
     def get_stats(self):
@@ -160,3 +169,7 @@ class DbConnection:
         """
         query = "SELECT * FROM Download"
         return self.__execute_select_query(query)
+
+    def delete_user(self, chat_id: int):
+        query = f"DELETE FROM User WHERE chat_id=={chat_id}"
+        result = self.__execute_select_query(query)

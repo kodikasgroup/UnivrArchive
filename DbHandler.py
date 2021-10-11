@@ -61,6 +61,9 @@ class DbHandler:
             DbHandler.db_connection.update_credits(chat_id, new_value)
             return chat_id
 
+    @staticmethod
+    def update_credits_all(value: int) -> bool:
+        return DbHandler.update_credits_all(value)
 
     @staticmethod
     def increase_download(chat_id: int):
@@ -113,3 +116,26 @@ class DbHandler:
             downloads += d
             user_count += 1
         return downloads, user_count
+
+    @staticmethod
+    def get_id(username: str) -> int:
+        return DbHandler.db_connection.get_chat_id(username)
+
+    @staticmethod
+    def get_all_id() -> list:
+        return DbHandler.get_all_id()
+
+    @staticmethod
+    def remove_id(**kwargs):
+        """"
+        modifies the credits of the user with the given chat_id adding the given quantity
+        :param value: the quantity of credits to add
+        :param kwargs: the id of the user or username syntax ' chat_id=XX or user_id=XX '
+        :return:
+        """
+        if kwargs.__contains__("chat_id"):
+            chat_id = kwargs.get("chat_id")
+        else:
+            chat_id = DbHandler.db_connection.get_chat_id(kwargs.get("user_id"))
+        curr_value = DbHandler.db_connection.delete_user(chat_id)
+
