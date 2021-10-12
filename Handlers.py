@@ -291,10 +291,12 @@ class Handlers:
             user_message = update.message.text
             message_to_user = "you are now Vip!!!"
             message_to_root = "{} it's now Vip"
-            string = user_message.split('/givevip ')
-            if string[1].__contains__('@'):
+            splitted_string = user_message.split('/givevip ')
+            user_identifier = splitted_string[1]
+
+            if '@' in user_identifier:
                 """update by User"""
-                user_id = DbHandler.get_id(string[1])
+                user_id = DbHandler.get_id(user_identifier[1:])
                 DbHandler.add_vip(user_id)
                 context.bot.send_message(
                     chat_id=int(user_id),
@@ -302,18 +304,18 @@ class Handlers:
                 )
                 context.bot.send_message(
                     chat_id=chat_id,
-                    text=message_to_root.format(string[1])
+                    text=message_to_root.format(user_identifier)
                 )
             else:
                 """Function querry by ID"""
-                DbHandler.add_vip(int(string[1]))
+                DbHandler.add_vip(int(user_identifier))
                 context.bot.send_message(
-                    chat_id=int(string[1]),
+                    chat_id=int(user_identifier),
                     text=message_to_user
                 )
                 context.bot.send_message(
                     chat_id=chat_id,
-                    text=message_to_root.format(string[1])
+                    text=message_to_root.format(user_identifier)
                 )
 
     @staticmethod
