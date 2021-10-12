@@ -92,6 +92,7 @@ class DbConnection:
         self.__execute__query(query)
 
     def update_all_credits(self, value: int):
+        # TODO add comment
         query = f"UPDATE Reserved SET Credit = Credit+{value}"
         self.__execute__query(query)
 

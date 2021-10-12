@@ -226,7 +226,7 @@ class Handlers:
             )
 
     @staticmethod
-    def givecredits_handler(update: Update, context: CallbackContext):
+    def give_credits_handler(update: Update, context: CallbackContext):
         """
         Handles the givecredits command that set credits and send message_to_user
         :param update:
@@ -237,12 +237,15 @@ class Handlers:
         if chat_id in Handlers.rootUsers:
             user_message = update.message.text
             string = user_message.split('/givecredits ')
-            type =  string[1].split('#')
-            message_to_user = "You got {} check your credits using the command: /credits".format(type[1])
+            command_type = string[1].split('#')
+            message_to_user = "You got {} check your credits using the command: /credits".format(command_type[1])
             message_to_root = "Credits added"
-            if type[0].__contains__('@'):
+            if command_type[0].__contains__('@'):
                 """By USERNAME"""
-                user_chat= DbHandler.update_credits(int(type[1]), user_id=type[0].replace("@", ""))
+                user_chat = DbHandler.update_credits(
+                    value=int(command_type[1]),
+                    user_id=command_type[0].replace("@", "")
+                )
                 if user_chat > 0:
                     context.bot.send_message(
                         chat_id=user_chat,
@@ -252,12 +255,12 @@ class Handlers:
                         chat_id=chat_id,
                         text=message_to_root
                     )
-            elif type[0].__contains__('all'):
+            elif command_type[0].__contains__('all'):
                 """ALL USER  """
-                DbHandler.update_credits_all(int(type[1]))
+                DbHandler.update_credits_all(int(command_type[1]))
             else:
                 """ID code """
-                user_chat = DbHandler.update_credits(int(type[1]), user_id=int(type[0]))
+                user_chat = DbHandler.update_credits(int(command_type[1]), user_id=int(command_type[0]))
                 if not user_chat:
                     context.bot.send_message(
                         chat_id=user_chat,
@@ -268,11 +271,11 @@ class Handlers:
                         text=message_to_root
                     )
 
-
     @staticmethod
-    def givevip_handler(update: Update, context: CallbackContext):
+    def give_vip_handler(update: Update, context: CallbackContext):
+        # TODO fix method description
         """
-        Handles the givecredits command that set credits and send message
+        Handles the givevip command that set credits and send message
         :param update:
         :param context:
         :return:
@@ -282,9 +285,10 @@ class Handlers:
             user_message = update.message.text
             message_to_user = "you are now Vip!!!"
             message_to_root = "{} it's now Vip"
-            string = user_message.split('/givevip')
+            string = user_message.split('/givevip ')
             if string[1].__contains__('@'):
                 """TODO: Function querry update by User"""
+                # TODO: convert username to chat id and then add vip
                 ## DbHandler.add_vip()
                 context.bot.send_message(
                     chat_id=chat_id,
@@ -303,7 +307,7 @@ class Handlers:
                 )
 
     @staticmethod
-    def sendmessage_handler(update: Update, context: CallbackContext):
+    def send_message_handler(update: Update, context: CallbackContext):
         """
         Handles the givecredits command that set credits and send message
         :param update:
@@ -314,12 +318,12 @@ class Handlers:
         if chat_id in Handlers.rootUsers:
             user_message = update.message.text
             string = user_message.split('/sendmessage')
-            type =  string[1].split('#')
-            message_to_user = type[1]
+            message_type = string[1].split('#')
+            message_to_user = message_type[1]
             message_to_root = "The message has send to {}"
-            if type[0].__contains__('@'):
+            if message_type[0].__contains__('@'):
                 """By Username"""
-                user_id = DbHandler.get_id(type[0])
+                user_id = DbHandler.get_id(message_type[0])
                 context.bot.send_message(
                     chat_id=user_id,
                     text=message_to_user
@@ -329,7 +333,7 @@ class Handlers:
                     text=message_to_root.format(user_id)
                 )
 
-            elif type[0].__contains__('all'):
+            elif message_type[0].__contains__('all'):
                 """ALL USER """
                 all_id = DbHandler.get_all_id()
                 for id in all_id:
@@ -345,16 +349,17 @@ class Handlers:
             else:
                 """TODO : Function querry by ID"""
                 context.bot.send_message(
-                    chat_id=int(type[0]),
+                    chat_id=int(message_type[0]),
                     text=message_to_user
                 )
                 context.bot.send_message(
                     chat_id=chat_id,
-                    text=message_to_root.format(type[0])
+                    text=message_to_root.format(message_type[0])
                 )
 
     @staticmethod
     def remove_handler(update: Update, context: CallbackContext):
+        # TODO fix method description
         """
         Handles the givecredits command that set credits and send message
         :param update:
@@ -364,7 +369,7 @@ class Handlers:
         chat_id = update.message.from_user.id
         if chat_id in Handlers.rootUsers:
             user_message = update.message.text
-            string = user_message.split('/remove')
+            string = user_message.split('/remove ')
             if string[1].__contains__('@'):
                 """by User"""
                 DbHandler.remove_id(user_id=string[1].replace("@", ""))

@@ -63,7 +63,7 @@ class DbHandler:
 
     @staticmethod
     def update_credits_all(value: int) -> bool:
-        return DbHandler.update_credits_all(value)
+        return DbHandler.db_connection.update_all_credits(value)
 
     @staticmethod
     def increase_download(chat_id: int):
