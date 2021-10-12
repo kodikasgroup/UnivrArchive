@@ -186,4 +186,4 @@ class DbConnection:
         :return:
         """
         query = f"DELETE FROM User WHERE chat_id=={chat_id}"
-        result = self.__execute_select_query(query)
+        self.__execute__query(query)

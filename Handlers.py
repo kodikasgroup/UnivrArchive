@@ -4,6 +4,7 @@ import traceback
 import telegram
 from decouple import config
 from telegram import Update, InlineKeyboardMarkup
+from telegram.error import BadRequest
 from telegram.ext import CallbackContext
 
 from DbHandler import DbHandler
@@ -164,10 +165,15 @@ class Handlers:
         user_message = update.message.text
         user_message = user_message.split('/feedback ')[1]
         message = f"ID:{chat_id} User:@{username}\n" + user_message
+        reply_message = "Il feedback é stato inviato con successo , ti ringraziamo per la collaborazione"
 
         context.bot.send_message(
             chat_id=id_channel_feedback,
             text=message
+        )
+        context.bot.send_message(
+            chat_id=chat_id,
+            text=reply_message
         )
 
     @staticmethod
@@ -350,14 +356,20 @@ class Handlers:
             elif 'all' in user_identifier:
                 """ALL USER """
                 all_id = DbHandler.get_all_id()
+                sent_messages = 0
+
                 for id_t in all_id:
-                    context.bot.send_message(
-                        chat_id=id_t[0],
-                        text=message_to_user
-                    )
+                    try:
+                        context.bot.send_message(
+                            chat_id=id_t[0],
+                            text=message_to_user
+                        )
+                        sent_messages += 1
+                    except BadRequest:
+                        DbHandler.remove_id(chat_id=id_t[0])
                 context.bot.send_message(
                     chat_id=chat_id,
-                    text=message_to_root.format(len(all_id))
+                    text=message_to_root.format(sent_messages)
                 )
 
             else:
