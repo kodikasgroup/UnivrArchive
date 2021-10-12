@@ -329,28 +329,30 @@ class Handlers:
         chat_id = update.message.from_user.id
         if chat_id in Handlers.rootUsers:
             user_message = update.message.text
-            string = user_message.split('/sendmessage')
-            message_type = string[1].split('#')
-            message_to_user = message_type[1]
+            string = user_message.split('/sendmessage ')
+            splitted_string = string[1].split('#')
+            user_identifier = splitted_string[0]
+
+            message_to_user = splitted_string[1]
             message_to_root = "The message has send to {}"
-            if message_type[0].__contains__('@'):
+            if '@' in user_identifier:
                 """By Username"""
-                user_id = DbHandler.get_id(message_type[0])
+                user_id = DbHandler.get_id(user_identifier[1:])
                 context.bot.send_message(
                     chat_id=user_id,
                     text=message_to_user
                 )
                 context.bot.send_message(
                     chat_id=chat_id,
-                    text=message_to_root.format(user_id)
+                    text=message_to_root.format(user_identifier)
                 )
 
-            elif message_type[0].__contains__('all'):
+            elif 'all' in user_identifier:
                 """ALL USER """
                 all_id = DbHandler.get_all_id()
-                for id in all_id:
+                for id_t in all_id:
                     context.bot.send_message(
-                        chat_id=int(id),
+                        chat_id=id_t[0],
                         text=message_to_user
                     )
                 context.bot.send_message(
@@ -361,12 +363,12 @@ class Handlers:
             else:
                 """TODO : Function querry by ID"""
                 context.bot.send_message(
-                    chat_id=int(message_type[0]),
+                    chat_id=int(user_identifier),
                     text=message_to_user
                 )
                 context.bot.send_message(
                     chat_id=chat_id,
-                    text=message_to_root.format(message_type[0])
+                    text=message_to_root.format(user_identifier)
                 )
 
     @staticmethod

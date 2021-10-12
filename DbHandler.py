@@ -122,7 +122,7 @@ class DbHandler:
 
     @staticmethod
     def get_all_id() -> list:
-        return DbHandler.get_all_id()
+        return DbHandler.db_connection.get_all_chat_id()
 
     @staticmethod
     def remove_id(**kwargs):

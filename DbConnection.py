@@ -142,9 +142,9 @@ class DbConnection:
 
     def get_all_chat_id(self) -> list:
         """
-              Given all chat_id
-              :return: result: list
-              """
+        Given all chat_id
+        :return: result: list
+        """
         query = f"SELECT chat_id FROM User"
         result = self.__execute_select_query(query)
         return result
