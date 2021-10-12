@@ -28,7 +28,11 @@ class Utils:
                   "Vuoi inviarci materiale ? Bene, basta che lo mandi sotto forma di file direttamente al bot\." + \
                   "Ti chiediamo cortesemente se hai piu file di creare una cartella compressa e poi inviarla\. " + \
                   "Una volta revisionati i file riceverai crediti da poter usare eventualmente nel area exclusive\.\n\n" + \
-                  "📕📕📕Buon Studio 📕📕📕"
+                  "📕📕📕Buon Studio 📕📕📕\n\n" + \
+                  "Innoltre ci terremo a farti presente che essendoci comunque un lavoro dietro di progettazione e mantenimento \n" \
+                  "abbiamo messo a disposizione un modo perche chi voglia di sostenerci con una piccola donazione /donation " \
+                  "inoltre per ringraziare di ció con una donazione superiore a 3 euro si ottiene lo stato di Vip \n" \
+                  "che consentira di beneficiare ilimitatamente di Exclusive"
         message = message.format(name, opening)
         return message
 

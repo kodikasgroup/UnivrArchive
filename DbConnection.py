@@ -92,7 +92,11 @@ class DbConnection:
         self.__execute__query(query)
 
     def update_all_credits(self, value: int):
-        # TODO add comment
+        """
+                Increases all user credits
+                :param value: credits increase value
+                :return:
+                """
         query = f"UPDATE Reserved SET Credit = Credit+{value}"
         self.__execute__query(query)
 
@@ -137,6 +141,10 @@ class DbConnection:
         return result[0][0]
 
     def get_all_chat_id(self) -> list:
+        """
+              Given all chat_id
+              :return: result: list
+              """
         query = f"SELECT chat_id FROM User"
         result = self.__execute_select_query(query)
         return result
@@ -172,5 +180,10 @@ class DbConnection:
         return self.__execute_select_query(query)
 
     def delete_user(self, chat_id: int):
+        """
+        Given a chat_id and removes from database
+        :param chat_id
+        :return:
+        """
         query = f"DELETE FROM User WHERE chat_id=={chat_id}"
         result = self.__execute_select_query(query)

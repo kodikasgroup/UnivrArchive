@@ -273,9 +273,8 @@ class Handlers:
 
     @staticmethod
     def give_vip_handler(update: Update, context: CallbackContext):
-        # TODO fix method description
         """
-        Handles the givevip command that set credits and send message
+        Handles the givevip command that set the status of vip
         :param update:
         :param context:
         :return:
@@ -287,9 +286,13 @@ class Handlers:
             message_to_root = "{} it's now Vip"
             string = user_message.split('/givevip ')
             if string[1].__contains__('@'):
-                """TODO: Function querry update by User"""
-                # TODO: convert username to chat id and then add vip
-                ## DbHandler.add_vip()
+                """update by User"""
+                user_id = DbHandler.get_id(string[1])
+                DbHandler.add_vip(user_id)
+                context.bot.send_message(
+                    chat_id=int(user_id),
+                    text=message_to_user
+                )
                 context.bot.send_message(
                     chat_id=chat_id,
                     text=message_to_root.format(string[1])
@@ -359,9 +362,8 @@ class Handlers:
 
     @staticmethod
     def remove_handler(update: Update, context: CallbackContext):
-        # TODO fix method description
         """
-        Handles the givecredits command that set credits and send message
+        Handles which goes to remove a user from the database
         :param update:
         :param context:
         :return:
@@ -397,3 +399,18 @@ class Handlers:
             context.bot.send_message(chat_id=update.message.from_user.id,
                                      text=message,
                                      parse_mode=telegram.ParseMode.MARKDOWN_V2)
+
+    @staticmethod
+    def donation_handler(update: Update, context: CallbackContext):
+        """
+        Handles the Donotaion
+        :param update:
+        :param context:
+        :return:
+        """
+        chat_id = update.message.from_user.id
+        message = "Siamo felici che tu voglia sostenere il progetto: \n" + config('DONATION_LINK')
+        context.bot.send_message(
+            chat_id=chat_id,
+            text=message
+        )

@@ -13,8 +13,15 @@ logging.basicConfig(
 )
 
 # instantiate bot
+mode = config('ACTIVE_MODE')
+if mode == 'DEPLOY':
+    token = config('DEPLOY_TOKEN')
+elif mode == 'BETA':
+    token = config('BETA_TOKEN')
+else:
+    token = config('TOKEN')
 updater = Updater(
-    token=config('TOKEN'),
+    token=token,
     use_context=True
 )
 dispatcher = updater.dispatcher
@@ -30,6 +37,7 @@ give_credits_handler = CommandHandler('givecredits', Handlers.give_credits_handl
 give_vip_handler = CommandHandler('givevip', Handlers.give_vip_handler)
 send_message_handler = CommandHandler('sendmessage', Handlers.send_message_handler)
 remove_handler = CommandHandler('remove', Handlers.remove_handler)
+donation_handler = CommandHandler('donation', Handlers.donation_handler)
 
 button_handler = CallbackQueryHandler(Handlers.inline_button_handler)
 file_handler = MessageHandler(Filters.document, Handlers.material_receiver_handler)
@@ -44,6 +52,7 @@ dispatcher.add_handler(give_credits_handler)
 dispatcher.add_handler(give_vip_handler)
 dispatcher.add_handler(send_message_handler)
 dispatcher.add_handler(remove_handler)
+dispatcher.add_handler(donation_handler)
 
 dispatcher.add_handler(button_handler)
 dispatcher.add_handler(file_handler)
