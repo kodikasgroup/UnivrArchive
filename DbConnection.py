@@ -88,7 +88,7 @@ class DbConnection:
         :param value: the quantity of credits to add
         :return:
         """
-        query = f"UPDATE Reserved SET Credit = {value} WHERE chat_id=={chat_id}"
+        query = f"UPDATE Reserved SET Credit={value} WHERE chat_id=={chat_id}"
         self.__execute__query(query)
 
     def update_all_credits(self, value: int):

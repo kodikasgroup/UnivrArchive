@@ -27,8 +27,10 @@ class ExclusiveButtonHandler:
         if DbHandler.is_vip(chat_id):
             Utils.send_file(context, path, chat_id)
         else:
-            if DbHandler.get_credits(chat_id) >= price:
-                update_credits(chat_id, (-1 * price))
+            user_credits = DbHandler.get_credits(chat_id)
+            if user_credits >= price:
+                user_credits = user_credits - price
+                DbHandler.db_connection.update_credits(chat_id, user_credits)
                 Utils.send_file(context, path, chat_id)
             else:
                 message = "❌ ERRORE ❌\n" + \

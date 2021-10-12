@@ -237,14 +237,18 @@ class Handlers:
         if chat_id in Handlers.rootUsers:
             user_message = update.message.text
             string = user_message.split('/givecredits ')
-            command_type = string[1].split('#')
-            message_to_user = "You got {} check your credits using the command: /credits".format(command_type[1])
+            splitted_string = string[1].split('#')
+
+            user_identifier = splitted_string[0]
+            num_credits = splitted_string[1]
+
+            message_to_user = f"You got {num_credits} check your credits using the command: /credits"
             message_to_root = "Credits added"
-            if command_type[0].__contains__('@'):
+            if '@' in user_identifier:
                 """By USERNAME"""
                 user_chat = DbHandler.update_credits(
-                    value=int(command_type[1]),
-                    user_id=command_type[0].replace("@", "")
+                    value=int(num_credits),
+                    user_id=user_identifier.replace("@", "")
                 )
                 if user_chat > 0:
                     context.bot.send_message(
@@ -255,13 +259,16 @@ class Handlers:
                         chat_id=chat_id,
                         text=message_to_root
                     )
-            elif command_type[0].__contains__('all'):
+            elif 'all' in user_identifier:
                 """ALL USER  """
-                DbHandler.update_credits_all(int(command_type[1]))
+                DbHandler.update_credits_all(int(num_credits))
             else:
                 """ID code """
-                user_chat = DbHandler.update_credits(int(command_type[1]), user_id=int(command_type[0]))
-                if not user_chat:
+                user_chat = DbHandler.update_credits(
+                    int(num_credits),
+                    chat_id=int(user_identifier)
+                )
+                if user_chat is not None:
                     context.bot.send_message(
                         chat_id=user_chat,
                         text=message_to_user

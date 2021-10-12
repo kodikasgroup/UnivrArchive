@@ -54,8 +54,7 @@ class DbHandler:
             chat_id = DbHandler.db_connection.get_chat_id(kwargs.get("user_id"))
         curr_value = DbHandler.db_connection.get_credits(chat_id)
         if value < 0 and (-1 * value) > curr_value:
-            logging.debug(f"Can't subtract {-1 * value} credits to User with chat_id: {chat_id}")
-            return False
+            raise AttributeError(f"Can't subtract {-1 * value} credits to User with chat_id: {chat_id}")
         else:
             new_value = curr_value + value
             DbHandler.db_connection.update_credits(chat_id, new_value)
