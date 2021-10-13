@@ -45,6 +45,35 @@ class Handlers:
                                  reply_markup=reply_markup)
 
     @staticmethod
+    def info_handler(update: Update, context: CallbackContext):
+        """
+        Send the user a message showing the number of credits that the user has
+        :param update:
+        :param context:
+        :return:
+        """
+        chat_id = update.message.from_user.id
+        message = Utils.info_message()
+        context.bot.send_message(
+            chat_id=chat_id,
+            text=message
+        )
+
+    @staticmethod
+    def exclusive_message(update: Update, context: CallbackContext):
+        """
+        composes the exclusive message to send to the user
+        :return: the message
+        """
+        chat_id = update.message.from_user.id
+        message = Utils.exclusive_message()
+        context.bot.send_message(
+            chat_id=chat_id,
+            text=message
+        )
+        return message
+
+    @staticmethod
     def inline_button_handler(update: Update, context: CallbackContext) -> None:
         """
         handles callbacks derived from inline buttons

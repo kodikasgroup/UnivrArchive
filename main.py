@@ -30,6 +30,9 @@ dispatcher = updater.dispatcher
 start_handler = CommandHandler('start', Handlers.start_handler)
 credits_handler = CommandHandler('credits', Handlers.credits_handler)
 feedback_handler = CommandHandler('feedback', Handlers.feedback_handler)
+info_handler = CommandHandler('info', Handlers.info_handler)
+exclusive_handler = CommandHandler('exclusive', Handlers.exclusive_message)
+
 # section handlers root mode
 root_handler = CommandHandler('root', Handlers.root_handler)
 stats_handler = CommandHandler('stats', Handlers.stats_handler)
@@ -45,6 +48,8 @@ file_handler = MessageHandler(Filters.document, Handlers.material_receiver_handl
 dispatcher.add_handler(start_handler)
 dispatcher.add_handler(credits_handler)
 dispatcher.add_handler(feedback_handler)
+dispatcher.add_handler(info_handler)
+dispatcher.add_handler(exclusive_handler)
 
 dispatcher.add_handler(root_handler)
 dispatcher.add_handler(stats_handler)

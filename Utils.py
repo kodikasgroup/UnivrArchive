@@ -37,6 +37,27 @@ class Utils:
         return message
 
     @staticmethod
+    def info_message() -> str:
+        """
+        composes the info message to send to the user
+        :return: the message
+        """
+        message = "Sezione Ancora da definire"
+        return message
+
+    @staticmethod
+    def exclusive_message() -> str:
+        """
+        composes the info message to send to the user
+        :return: the message
+        """
+        message = "⭐EXCLUSIVE é una sezione dedicata a chi ci aiuta a " \
+                  "espandere il Bot con materiale l'idea ci é sorta per ringrazziare" \
+                  " i membri piú attivi al interno riserviamo il materiale piú 'raro' e difficile da " \
+                  "reperire qualsiasi persona che aiutera fornendo materiale riceverá un equivalente di crediti che potrá usare per scaricare del materiale della sezione"
+        return message
+
+    @staticmethod
     def delete_last_message(update: Update, context: CallbackContext):
         """
 
