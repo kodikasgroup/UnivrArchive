@@ -461,7 +461,9 @@ class Handlers:
         :return:
         """
         chat_id = update.message.from_user.id
-        message = "Siamo felici che tu voglia sostenere il progetto: \n" + config('DONATION_LINK')
+        message = "Siamo felici che tu voglia sostenere il progetto: \n" \
+                  "Ti preghiamo innoltre che nel messaggio di donazione di aggiungere il tuo nome utente telegram cosi da facilitare il riconoscimento" \
+                  "in caso di problemi , non esitate a contattare tramite il comando di feedback del bot \n" + config('DONATION_LINK')
         context.bot.send_message(
             chat_id=chat_id,
             text=message
