@@ -1,3 +1,4 @@
+import _io
 import os
 
 import telegram
@@ -102,5 +103,9 @@ class Utils:
             path=path,
             file_id=response.document.file_id
         )
+
+        if type(file) is _io.BufferedReader:
+            file.close()
+
         DbHandler.increase_download(chat_id)
         DbHandler.update_state(chat_id)

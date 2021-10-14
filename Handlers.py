@@ -94,6 +94,7 @@ class Handlers:
         elif 'EXCLUSIVE' in text:
             # Exclusive section
             if '__course' in text:
+                Utils.delete_last_message(update, context)
                 ExclusiveButtonHandler.course_button_handler(context, text, chat_id)
             elif '__year' in text:
                 ExclusiveButtonHandler.year_button_handler(update, context, text, chat_id)
@@ -102,7 +103,6 @@ class Handlers:
                 ExclusiveButtonHandler.subject_button_handler(update, context, text, chat_id)
             elif '__file' in text:
                 ExclusiveButtonHandler.file_button_handler(context, text, chat_id)
-                pass
             else:
                 # handle when the user click the EXCLUSIVE button
                 ExclusiveButtonHandler.exclusive_button_handler(context, chat_id)
