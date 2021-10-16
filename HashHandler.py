@@ -1,5 +1,6 @@
 import hashlib
-import pprint
+
+from pympler import asizeof
 
 
 class HashHandler:
@@ -14,6 +15,8 @@ class HashHandler:
         """
         result = hashlib.md5(text.encode()).hexdigest()
         cls.lookup_table[result] = text
+        print(f"the hash_path table has {len(cls.lookup_table)}")
+        print(f"the size is {asizeof.asizeof(cls.lookup_table)}")
         return result
 
     @classmethod
