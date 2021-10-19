@@ -7,9 +7,11 @@ from telegram import Update, InlineKeyboardMarkup
 from telegram.error import BadRequest
 from telegram.ext import CallbackContext
 
+import MainButtonsGenerator
 from DbHandler import DbHandler
 from ExclusiveButtonHandler import ExclusiveButtonHandler
-from MainButtonsGenerator import ButtonGenerator
+from HashHandler import HashHandler
+from MainButtonsGenerator import MainButtonsGenerator
 from MainButtonsHandler import StartButtonHandler
 from Utils import Utils
 
@@ -34,8 +36,8 @@ class Handlers:
         DbHandler.add_user(chat_id, username, first_name)
 
         message = Utils.get_start_message(opening="Benvenuto/a", name=first_name)
-        doc = open('resources/intro.gif', 'rb')
-        buttons = ButtonGenerator.get_start_buttons()
+        doc = open('resources/intro_new.gif', 'rb')
+        buttons = MainButtonsGenerator.get_start_buttons()
         reply_markup = InlineKeyboardMarkup(buttons)
 
         context.bot.send_photo(chat_id, doc)
@@ -107,17 +109,31 @@ class Handlers:
                 # handle when the user click the EXCLUSIVE button
                 ExclusiveButtonHandler.exclusive_button_handler(context, chat_id)
         else:
-            # Normal files
-            if '__course' in text:
-                StartButtonHandler.course_button_handler(context, text, chat_id)
-            elif '__year' in text:
-                StartButtonHandler.year_button_handler(update, context, text, chat_id)
-            elif '__subject' in text:
-                StartButtonHandler.subject_button_handler(update, context, text, chat_id)
-            elif '__subdir' in text:
-                StartButtonHandler.subdir_button_handler(update, context, text, chat_id)
-            elif '__file' in text:
-                StartButtonHandler.file_button_handler(update, context, text, chat_id)
+            # TODO: make directory dynamic
+
+            if Utils.is_md5(text):
+                unhashed_text = HashHandler.get_corresponding_text(text)
+                context.bot.send_message(
+                    chat_id=chat_id,
+                    text=text
+                )
+                buttons = None
+                pass
+            else:
+                buttons = MainButtonsGenerator.get_buttons(text)
+
+                pass
+            # # Normal files
+            # if '__course' in text:
+            #     StartButtonHandler.course_button_handler(context, text, chat_id)
+            # elif '__year' in text:
+            #     StartButtonHandler.year_button_handler(update, context, text, chat_id)
+            # elif '__subject' in text:
+            #     StartButtonHandler.subject_button_handler(update, context, text, chat_id)
+            # elif '__subdir' in text:
+            #     StartButtonHandler.subdir_button_handler(update, context, text, chat_id)
+            # elif '__file' in text:
+            #     StartButtonHandler.file_button_handler(update, context, text, chat_id)
 
     @staticmethod
     def material_receiver_handler(update: Update, context: CallbackContext):

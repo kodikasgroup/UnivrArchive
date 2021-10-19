@@ -5,7 +5,32 @@ from telegram import InlineKeyboardButton
 from HashHandler import HashHandler
 
 
-class ButtonGenerator:
+class MainButtonsGenerator:
+    @staticmethod
+    def get_buttons(button_path: str = ""):
+        """
+        utils method that given the parameters it build the buttons
+        :param button_path: the path of the clicked buttons
+        :return: a list of buttons built following the given parameters
+        """
+
+        path = "archive" + "/" + button_path
+        # since the directory name could contain an underscore we use double underscore to separate the
+        # given string from the rest
+        buttons = [
+            InlineKeyboardButton(
+                d_name.replace('_', ' ').replace('-', ' '),
+                callback_data=HashHandler.generate_hash(button_path + '/' + d_name) + '__file'
+            ) if os.path.isfile(path+'/'+d_name)
+            else
+            InlineKeyboardButton(
+                d_name.replace('_', ' ').replace('-', ' '),
+                callback_data=HashHandler.generate_hash(button_path + '/' + d_name)
+            )
+            for d_name in os.listdir(path)
+        ]
+        return buttons
+
     @staticmethod
     def get_start_buttons() -> list:
         """
@@ -23,7 +48,7 @@ class ButtonGenerator:
             else:
                 # append pencil to the front and the back of the button text
                 button_text = "✏" + d_name + "✏"
-                buttons.append([InlineKeyboardButton(button_text, callback_data=d_name + '__course')])
+                buttons.append([InlineKeyboardButton(button_text, callback_data=d_name)])
         return buttons
 
     @staticmethod

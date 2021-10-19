@@ -4,8 +4,7 @@ import telegram
 from telegram import InlineKeyboardMarkup, Update
 from telegram.ext import CallbackContext
 
-from MainButtonsGenerator import ButtonGenerator
-from FileHandler import FileHandler
+from MainButtonsGenerator import MainButtonsGenerator
 from HashHandler import HashHandler
 from Utils import Utils
 
@@ -21,7 +20,7 @@ class StartButtonHandler:
         :return:
         """
         course_name = text.split('__')[0]
-        buttons = ButtonGenerator.get_year_buttons(course_name)
+        buttons = MainButtonsGenerator.get_year_buttons(course_name)
         reply_markup = InlineKeyboardMarkup(buttons)
         message = f"Hai Scelto:\n{course_name}"
         context.bot.send_message(chat_id=chat_id,
@@ -42,7 +41,7 @@ class StartButtonHandler:
         split_text = text.split('/')
         course_name = split_text[0]
         year_name = split_text[1].split('__')[0]
-        buttons = ButtonGenerator.get_subject_buttons(course_name, year_name)
+        buttons = MainButtonsGenerator.get_subject_buttons(course_name, year_name)
         reply_markup = InlineKeyboardMarkup(buttons)
         message = f"Hai Scelto:\n{year_name.replace('_', ' ')}📚📚📚"
         Utils.delete_last_message(update, context)
@@ -67,7 +66,7 @@ class StartButtonHandler:
         year_name = split_text[1]
         subject_name = split_text[2].split('__')[0]
 
-        buttons = ButtonGenerator.get_subdir_buttons(course_name, year_name, subject_name)
+        buttons = MainButtonsGenerator.get_subdir_buttons(course_name, year_name, subject_name)
         reply_markup = InlineKeyboardMarkup(buttons)
         message = "⏰Scegli il Materiale⏰"
 
@@ -97,7 +96,7 @@ class StartButtonHandler:
         subject_name = split_text[2]
         subdir_name = split_text[3]
 
-        buttons = ButtonGenerator.get_file_buttons(course_name, year_name, subject_name, subdir_name)
+        buttons = MainButtonsGenerator.get_file_buttons(course_name, year_name, subject_name, subdir_name)
         reply_markup = InlineKeyboardMarkup(buttons)
         message = "💥ECCO IL MATERIALE DELLA SEZIONE💥"
 
@@ -172,7 +171,7 @@ class StartButtonHandler:
         first_name = update.callback_query.from_user.first_name
         message = Utils.get_start_message(opening="Ben ritornato/a", name=first_name)
 
-        buttons = ButtonGenerator.get_start_buttons()
+        buttons = MainButtonsGenerator.get_start_buttons()
         reply_markup = InlineKeyboardMarkup(buttons)
 
         Utils.delete_last_message(update, context)
