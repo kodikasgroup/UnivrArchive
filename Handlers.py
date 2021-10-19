@@ -34,11 +34,15 @@ class Handlers:
         DbHandler.add_user(chat_id, username, first_name)
 
         message = Utils.get_start_message(opening="Benvenuto/a", name=first_name)
-        doc = open('resources/intro.gif', 'rb')
+        doc = open('resources/video.mp4', 'rb')
         buttons = ButtonGenerator.get_start_buttons()
         reply_markup = InlineKeyboardMarkup(buttons)
 
-        context.bot.send_photo(chat_id, doc)
+        context.bot.send_animation(
+            chat_id=chat_id,
+            animation=doc
+        )
+        
         context.bot.send_message(chat_id=chat_id,
                                  text=message,
                                  parse_mode=telegram.ParseMode.MARKDOWN_V2,
