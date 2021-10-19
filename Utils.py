@@ -1,5 +1,6 @@
 import _io
 import os
+import re
 
 import telegram
 from telegram import Update
@@ -109,3 +110,14 @@ class Utils:
 
         DbHandler.increase_download(chat_id)
         DbHandler.update_state(chat_id)
+
+    @staticmethod
+    def is_md5(text):
+        """
+
+        :param text: the string to chek against
+        :return:
+        """
+        # https://stackoverflow.com/a/14300703
+        pattern = "^[a-f0-9]{32}$"
+        return re.match(pattern=pattern, string=text) is not None
