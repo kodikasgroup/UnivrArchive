@@ -10,7 +10,6 @@ from telegram.ext import CallbackContext
 import MainButtonsGenerator
 from DbHandler import DbHandler
 from ExclusiveButtonHandler import ExclusiveButtonHandler
-from HashHandler import HashHandler
 from MainButtonsGenerator import MainButtonsGenerator
 from MainButtonsHandler import MainButtonsHandler
 from Utils import Utils
@@ -109,41 +108,7 @@ class Handlers:
                 # handle when the user click the EXCLUSIVE button
                 ExclusiveButtonHandler.exclusive_button_handler(context, chat_id)
         else:
-            # Normal files
-            # TODO: make directory dynamic
-            if "__file" in text:
-                MainButtonsHandler.file_button_handler(context, text, chat_id)
-            else:
-                if Utils.is_md5(text):
-                    Utils.delete_last_message(update, context)
-                    unhashed_text = HashHandler.get_corresponding_text(text)
-                    splitted_text = unhashed_text.split('/')
-                    splitted_text_size = len(splitted_text)
-                    path = unhashed_text
-                    selected_text = splitted_text[-1].replace('_', ' ').replace('-', ' ')
-                    if splitted_text_size == 2:
-                        message_text = f"Hai scelto:\n{selected_text}📚📚📚"
-                        buttons = MainButtonsGenerator.get_buttons(path, two_columns=True, back_button=True)
-                    elif splitted_text_size == 3:
-                        message_text = "⏰Scegli il Materiale⏰"
-                        buttons = MainButtonsGenerator.get_buttons(path, back_button=True)
-                    elif splitted_text_size == 4:
-                        message_text = "💥ECCO IL MATERIALE DELLA SEZIONE💥"
-                        buttons = MainButtonsGenerator.get_buttons(path, back_button=True)
-                    else:
-                        message_text = f"Hai scelto:\n{selected_text}"
-                        buttons = MainButtonsGenerator.get_buttons(path, back_button=True)
-
-                else:
-                    # Study Course button clicked
-                    message_text = f"Hai scelto:\n🗄{text}🗄"
-                    path = text
-                    buttons = MainButtonsGenerator.get_buttons(path)
-
-                reply_markup = InlineKeyboardMarkup(buttons)
-                context.bot.send_message(chat_id=chat_id,
-                                         text=message_text,
-                                         reply_markup=reply_markup)
+            Utils.send_buttons(text, update, context, chat_id)
 
     @staticmethod
     def material_receiver_handler(update: Update, context: CallbackContext):

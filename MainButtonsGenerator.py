@@ -54,7 +54,7 @@ class MainButtonsGenerator:
             back_callback_data = HashHandler.generate_hash(button_path)
             buttons.append(
                 [
-                    InlineKeyboardButton('<< BACK', callback_data=back_callback_data),
+                    InlineKeyboardButton('<< BACK', callback_data=back_callback_data+"/BACK"),
                     InlineKeyboardButton('🏠HOME', callback_data='HOME')
                 ]
             )
