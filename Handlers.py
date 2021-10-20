@@ -3,7 +3,7 @@ import traceback
 
 import telegram
 from decouple import config
-from telegram import Update, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.error import BadRequest
 from telegram.ext import CallbackContext
 
@@ -12,7 +12,7 @@ from DbHandler import DbHandler
 from ExclusiveButtonHandler import ExclusiveButtonHandler
 from HashHandler import HashHandler
 from MainButtonsGenerator import MainButtonsGenerator
-from MainButtonsHandler import StartButtonHandler
+from MainButtonsHandler import MainButtonsHandler
 from Utils import Utils
 
 
@@ -36,7 +36,7 @@ class Handlers:
         DbHandler.add_user(chat_id, username, first_name)
 
         message = Utils.get_start_message(opening="Benvenuto/a", name=first_name)
-        doc = open('resources/intro_new.gif', 'rb')
+        doc = open('resources/intro.gif', 'rb')
         buttons = MainButtonsGenerator.get_start_buttons()
         reply_markup = InlineKeyboardMarkup(buttons)
 
@@ -87,12 +87,12 @@ class Handlers:
         chat_id = update.callback_query.from_user.id
         text = update.callback_query.data
         if text == 'HOME':
-            StartButtonHandler.home_button_handler(update, context)
+            MainButtonsHandler.home_button_handler(update, context)
         elif 'BACK' in text:
             if 'EXCLUSIVE' in text:
                 ExclusiveButtonHandler.back_button_handler(update, context, text, chat_id)
             else:
-                StartButtonHandler.back_button_handler(update, context, text)
+                MainButtonsHandler.back_button_handler(update, context, text)
         elif 'EXCLUSIVE' in text:
             # Exclusive section
             if '__course' in text:
@@ -110,30 +110,47 @@ class Handlers:
                 ExclusiveButtonHandler.exclusive_button_handler(context, chat_id)
         else:
             # TODO: make directory dynamic
-
-            if Utils.is_md5(text):
-                unhashed_text = HashHandler.get_corresponding_text(text)
-                context.bot.send_message(
-                    chat_id=chat_id,
-                    text=text
-                )
-                buttons = None
-                pass
+            if "__file" in text:
+                MainButtonsHandler.file_button_handler(context, text, chat_id)
             else:
-                buttons = MainButtonsGenerator.get_buttons(text)
+                if Utils.is_md5(text):
+                    unhashed_text = HashHandler.get_corresponding_text(text)
+                    splitted_text = unhashed_text.split('/')
+                    splitted_text_size = len(splitted_text)
+                    path = unhashed_text
+                    message_text = ""
+                    if splitted_text_size == 1:
+                        message_text = f"Hai scelto:\n{splitted_text[-1].replace('_', ' ').replace('-', ' ')}📚📚📚"
+                    elif splitted_text_size == 2:
+                        message_text = f"Hai scelto:\n{'*inserisci parola*'}🗄"
 
-                pass
+                else:
+                    # Study Course button
+                    message_text = f"Hai scelto:\n🗄{text}🗄"
+                    path = text
+
+                buttons = [[b] for b in MainButtonsGenerator.get_buttons(button_path=path)]
+                buttons = [
+                    *buttons,
+                    [InlineKeyboardButton('🏠HOME', callback_data='HOME')]
+                ]
+
+                reply_markup = InlineKeyboardMarkup(buttons)
+                context.bot.send_message(chat_id=chat_id,
+                                         text=message_text,
+                                         reply_markup=reply_markup)
+
             # # Normal files
             # if '__course' in text:
-            #     StartButtonHandler.course_button_handler(context, text, chat_id)
+            #     MainButtonsHandler.course_button_handler(context, text, chat_id)
             # elif '__year' in text:
-            #     StartButtonHandler.year_button_handler(update, context, text, chat_id)
+            #     MainButtonsHandler.year_button_handler(update, context, text, chat_id)
             # elif '__subject' in text:
-            #     StartButtonHandler.subject_button_handler(update, context, text, chat_id)
+            #     MainButtonsHandler.subject_button_handler(update, context, text, chat_id)
             # elif '__subdir' in text:
-            #     StartButtonHandler.subdir_button_handler(update, context, text, chat_id)
+            #     MainButtonsHandler.subdir_button_handler(update, context, text, chat_id)
             # elif '__file' in text:
-            #     StartButtonHandler.file_button_handler(update, context, text, chat_id)
+            #     MainButtonsHandler.file_button_handler(update, context, text, chat_id)
 
     @staticmethod
     def material_receiver_handler(update: Update, context: CallbackContext):
@@ -479,7 +496,8 @@ class Handlers:
         chat_id = update.message.from_user.id
         message = "Siamo felici che tu voglia sostenere il progetto: \n" \
                   "Ti preghiamo innoltre che nel messaggio di donazione di aggiungere il tuo nome utente telegram cosi da facilitare il riconoscimento" \
-                  "in caso di problemi , non esitate a contattare tramite il comando di feedback del bot \n" + config('DONATION_LINK')
+                  "in caso di problemi , non esitate a contattare tramite il comando di feedback del bot \n" + config(
+            'DONATION_LINK')
         context.bot.send_message(
             chat_id=chat_id,
             text=message

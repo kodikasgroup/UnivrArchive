@@ -1,15 +1,13 @@
-import os.path
-
 import telegram
 from telegram import InlineKeyboardMarkup, Update
 from telegram.ext import CallbackContext
 
-from MainButtonsGenerator import MainButtonsGenerator
 from HashHandler import HashHandler
+from MainButtonsGenerator import MainButtonsGenerator
 from Utils import Utils
 
 
-class StartButtonHandler:
+class MainButtonsHandler:
     @staticmethod
     def course_button_handler(context: CallbackContext, text: str, chat_id: int) -> None:
         """
@@ -107,10 +105,9 @@ class StartButtonHandler:
                                  parse_mode=telegram.ParseMode.MARKDOWN_V2)
 
     @staticmethod
-    def file_button_handler(update: Update, context: CallbackContext, text: str, chat_id: int):
+    def file_button_handler(context: CallbackContext, text: str, chat_id: int):
         """
 
-        :param update:
         :param context:
         :param text: the hashed callback data in the following
                format `course/year/subject/subdir/FileName__file`
@@ -151,13 +148,13 @@ class StartButtonHandler:
 
         if back_type == 'subject':
             Utils.delete_last_message(update, context)
-            StartButtonHandler.course_button_handler(context, course_name, chat_id)
+            MainButtonsHandler.course_button_handler(context, course_name, chat_id)
         elif back_type == 'subdir':
             param_text = '/'.join(split_text[:-1])
-            StartButtonHandler.year_button_handler(update, context, param_text, chat_id)
+            MainButtonsHandler.year_button_handler(update, context, param_text, chat_id)
         elif back_type == 'file':
             param_text = '/'.join(split_text[:-1])
-            StartButtonHandler.subject_button_handler(update, context, param_text, chat_id)
+            MainButtonsHandler.subject_button_handler(update, context, param_text, chat_id)
 
     @staticmethod
     def home_button_handler(update: Update, context: CallbackContext) -> None:
