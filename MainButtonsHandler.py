@@ -8,101 +8,6 @@ from Utils import Utils
 
 
 class MainButtonsHandler:
-    @staticmethod
-    def course_button_handler(context: CallbackContext, text: str, chat_id: int) -> None:
-        """
-
-        :param context:
-        :param text:
-        :param chat_id:
-        :return:
-        """
-        course_name = text.split('__')[0]
-        buttons = MainButtonsGenerator.get_year_buttons(course_name)
-        reply_markup = InlineKeyboardMarkup(buttons)
-        message = f"Hai Scelto:\n{course_name}"
-        context.bot.send_message(chat_id=chat_id,
-                                 text=message,
-                                 reply_markup=reply_markup)
-
-    @staticmethod
-    def year_button_handler(update: Update, context: CallbackContext, text: str, chat_id: int) -> None:
-        """
-
-        :param update:
-        :param context:
-        :param text:
-        :param chat_id:
-        :return:
-        """
-
-        split_text = text.split('/')
-        course_name = split_text[0]
-        year_name = split_text[1].split('__')[0]
-        buttons = MainButtonsGenerator.get_subject_buttons(course_name, year_name)
-        reply_markup = InlineKeyboardMarkup(buttons)
-        message = f"Hai Scelto:\n{year_name.replace('_', ' ')}📚📚📚"
-        Utils.delete_last_message(update, context)
-        context.bot.send_message(chat_id=chat_id,
-                                 text=message,
-                                 reply_markup=reply_markup,
-                                 parse_mode=telegram.ParseMode.MARKDOWN_V2)
-
-    @staticmethod
-    def subject_button_handler(update: Update, context: CallbackContext, text: str, chat_id: int):
-        """
-
-        :param update:
-        :param context:
-        :param text:
-        :param chat_id:
-        :return:
-        """
-
-        split_text = text.split('/')
-        course_name = split_text[0]
-        year_name = split_text[1]
-        subject_name = split_text[2].split('__')[0]
-
-        buttons = MainButtonsGenerator.get_subdir_buttons(course_name, year_name, subject_name)
-        reply_markup = InlineKeyboardMarkup(buttons)
-        message = "⏰Scegli il Materiale⏰"
-
-        Utils.delete_last_message(update, context)
-        context.bot.send_message(chat_id=chat_id,
-                                 text=message,
-                                 reply_markup=reply_markup,
-                                 parse_mode=telegram.ParseMode.MARKDOWN_V2)
-
-    @staticmethod
-    def subdir_button_handler(update: Update, context: CallbackContext, text: str, chat_id: int):
-        """
-
-        :param update:
-        :param context:
-        :param text: the callback data in the following
-               format `course/year/subject/DirectoryName__subdir`
-        :param chat_id:
-        :return:
-        """
-
-        text = text.split("__")[0]
-        text = HashHandler.get_corresponding_text(text)
-        split_text = text.split('/')
-        course_name = split_text[0]
-        year_name = split_text[1]
-        subject_name = split_text[2]
-        subdir_name = split_text[3]
-
-        buttons = MainButtonsGenerator.get_file_buttons(course_name, year_name, subject_name, subdir_name)
-        reply_markup = InlineKeyboardMarkup(buttons)
-        message = "💥ECCO IL MATERIALE DELLA SEZIONE💥"
-
-        Utils.delete_last_message(update, context)
-        context.bot.send_message(chat_id=chat_id,
-                                 text=message,
-                                 reply_markup=reply_markup,
-                                 parse_mode=telegram.ParseMode.MARKDOWN_V2)
 
     @staticmethod
     def file_button_handler(context: CallbackContext, text: str, chat_id: int):
@@ -117,14 +22,7 @@ class MainButtonsHandler:
 
         text = text.split("__")[0]
         text = HashHandler.get_corresponding_text(text)
-        split_text = text.split('/')
-        course_name = split_text[0]
-        year_name = split_text[1]
-        subject_name = split_text[2]
-        subdir_name = split_text[3]
-        file_name = split_text[4]
-
-        path = "archive" + "/" + course_name + "/" + year_name + "/" + subject_name + "/" + subdir_name + '/' + file_name
+        path = "archive" + "/" + text
 
         Utils.send_file(context, path, chat_id)
 

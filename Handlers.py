@@ -3,7 +3,7 @@ import traceback
 
 import telegram
 from decouple import config
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Update, InlineKeyboardMarkup
 from telegram.error import BadRequest
 from telegram.ext import CallbackContext
 
@@ -109,48 +109,41 @@ class Handlers:
                 # handle when the user click the EXCLUSIVE button
                 ExclusiveButtonHandler.exclusive_button_handler(context, chat_id)
         else:
+            # Normal files
             # TODO: make directory dynamic
             if "__file" in text:
                 MainButtonsHandler.file_button_handler(context, text, chat_id)
             else:
                 if Utils.is_md5(text):
+                    Utils.delete_last_message(update, context)
                     unhashed_text = HashHandler.get_corresponding_text(text)
                     splitted_text = unhashed_text.split('/')
                     splitted_text_size = len(splitted_text)
                     path = unhashed_text
-                    message_text = ""
-                    if splitted_text_size == 1:
-                        message_text = f"Hai scelto:\n{splitted_text[-1].replace('_', ' ').replace('-', ' ')}📚📚📚"
-                    elif splitted_text_size == 2:
-                        message_text = f"Hai scelto:\n{'*inserisci parola*'}🗄"
+                    selected_text = splitted_text[-1].replace('_', ' ').replace('-', ' ')
+                    if splitted_text_size == 2:
+                        message_text = f"Hai scelto:\n{selected_text}📚📚📚"
+                        buttons = MainButtonsGenerator.get_buttons(path, two_columns=True, back_button=True)
+                    elif splitted_text_size == 3:
+                        message_text = "⏰Scegli il Materiale⏰"
+                        buttons = MainButtonsGenerator.get_buttons(path, back_button=True)
+                    elif splitted_text_size == 4:
+                        message_text = "💥ECCO IL MATERIALE DELLA SEZIONE💥"
+                        buttons = MainButtonsGenerator.get_buttons(path, back_button=True)
+                    else:
+                        message_text = f"Hai scelto:\n{selected_text}"
+                        buttons = MainButtonsGenerator.get_buttons(path, back_button=True)
 
                 else:
-                    # Study Course button
+                    # Study Course button clicked
                     message_text = f"Hai scelto:\n🗄{text}🗄"
                     path = text
-
-                buttons = [[b] for b in MainButtonsGenerator.get_buttons(button_path=path)]
-                buttons = [
-                    *buttons,
-                    [InlineKeyboardButton('🏠HOME', callback_data='HOME')]
-                ]
+                    buttons = MainButtonsGenerator.get_buttons(path)
 
                 reply_markup = InlineKeyboardMarkup(buttons)
                 context.bot.send_message(chat_id=chat_id,
                                          text=message_text,
                                          reply_markup=reply_markup)
-
-            # # Normal files
-            # if '__course' in text:
-            #     MainButtonsHandler.course_button_handler(context, text, chat_id)
-            # elif '__year' in text:
-            #     MainButtonsHandler.year_button_handler(update, context, text, chat_id)
-            # elif '__subject' in text:
-            #     MainButtonsHandler.subject_button_handler(update, context, text, chat_id)
-            # elif '__subdir' in text:
-            #     MainButtonsHandler.subdir_button_handler(update, context, text, chat_id)
-            # elif '__file' in text:
-            #     MainButtonsHandler.file_button_handler(update, context, text, chat_id)
 
     @staticmethod
     def material_receiver_handler(update: Update, context: CallbackContext):
