@@ -22,14 +22,14 @@ class MainButtonsHandler:
 
         split_text = text.split('/')
         hash_text = split_text[0]
-        ushashed_text = HashHandler.get_corresponding_text(hash_text)
-        splitted_text = ushashed_text.split('/')[:-1]
-        ushashed_text = '/'.join(splitted_text)
+        unhashed_text = HashHandler.get_corresponding_text(hash_text)
+        splitted_text = unhashed_text.split('/')[:-1]
+        unhashed_text = '/'.join(splitted_text)
         if len(splitted_text) != 1:
-            hash_text = HashHandler.generate_hash(ushashed_text)
+            hash_text = HashHandler.generate_hash(unhashed_text)
             Utils.send_buttons(hash_text, update, context, chat_id)
         else:
-            Utils.send_buttons(ushashed_text, update, context, chat_id)
+            Utils.send_buttons(unhashed_text, update, context, chat_id)
 
     @staticmethod
     def home_button_handler(update: Update, context: CallbackContext) -> None:
