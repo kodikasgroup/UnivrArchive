@@ -7,10 +7,11 @@ from telegram import Update, InlineKeyboardMarkup
 from telegram.error import BadRequest
 from telegram.ext import CallbackContext
 
+import MainButtonsGenerator
 from DbHandler import DbHandler
 from ExclusiveButtonHandler import ExclusiveButtonHandler
-from MainButtonsGenerator import ButtonGenerator
-from MainButtonsHandler import StartButtonHandler
+from MainButtonsGenerator import MainButtonsGenerator
+from MainButtonsHandler import MainButtonsHandler
 from Utils import Utils
 
 
@@ -35,7 +36,7 @@ class Handlers:
 
         message = Utils.get_start_message(opening="Benvenuto/a", name=first_name)
         doc = open('resources/intro.gif', 'rb')
-        buttons = ButtonGenerator.get_start_buttons()
+        buttons = MainButtonsGenerator.get_start_buttons()
         reply_markup = InlineKeyboardMarkup(buttons)
 
         context.bot.send_photo(chat_id, doc)
@@ -85,12 +86,12 @@ class Handlers:
         chat_id = update.callback_query.from_user.id
         text = update.callback_query.data
         if text == 'HOME':
-            StartButtonHandler.home_button_handler(update, context)
+            MainButtonsHandler.home_button_handler(update, context)
         elif 'BACK' in text:
             if 'EXCLUSIVE' in text:
                 ExclusiveButtonHandler.back_button_handler(update, context, text, chat_id)
             else:
-                StartButtonHandler.back_button_handler(update, context, text)
+                MainButtonsHandler.back_button_handler(update, context, text)
         elif 'EXCLUSIVE' in text:
             # Exclusive section
             if '__course' in text:
@@ -107,17 +108,7 @@ class Handlers:
                 # handle when the user click the EXCLUSIVE button
                 ExclusiveButtonHandler.exclusive_button_handler(context, chat_id)
         else:
-            # Normal files
-            if '__course' in text:
-                StartButtonHandler.course_button_handler(context, text, chat_id)
-            elif '__year' in text:
-                StartButtonHandler.year_button_handler(update, context, text, chat_id)
-            elif '__subject' in text:
-                StartButtonHandler.subject_button_handler(update, context, text, chat_id)
-            elif '__subdir' in text:
-                StartButtonHandler.subdir_button_handler(update, context, text, chat_id)
-            elif '__file' in text:
-                StartButtonHandler.file_button_handler(update, context, text, chat_id)
+            Utils.send_buttons(text, update, context, chat_id)
 
     @staticmethod
     def material_receiver_handler(update: Update, context: CallbackContext):
@@ -463,7 +454,8 @@ class Handlers:
         chat_id = update.message.from_user.id
         message = "Siamo felici che tu voglia sostenere il progetto: \n" \
                   "Ti preghiamo innoltre che nel messaggio di donazione di aggiungere il tuo nome utente telegram cosi da facilitare il riconoscimento" \
-                  "in caso di problemi , non esitate a contattare tramite il comando di feedback del bot \n" + config('DONATION_LINK')
+                  "in caso di problemi , non esitate a contattare tramite il comando di feedback del bot \n" + config(
+            'DONATION_LINK')
         context.bot.send_message(
             chat_id=chat_id,
             text=message

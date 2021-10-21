@@ -22,5 +22,3 @@ class FileHandler:
         :return:
         """
         cls.files[path] = file_id
-        print(f"the file_id table has {len(cls.files)}")
-        print(f"the size is {asizeof.asizeof(cls.files)}")
