@@ -37,7 +37,7 @@ class Handlers:
         try:
             Utils.delete_last_message(update, context)
         except:
-            print("No message Before Find")
+            logging.debug("An Error Occurred: No messages found before")
 
         message = Utils.get_start_message(opening="Benvenuto/a", name=first_name)
         buttons = MainButtonsGenerator.get_start_buttons()
@@ -48,7 +48,7 @@ class Handlers:
             chat_id=chat_id,
             animation=doc
         )
-        
+
         context.bot.send_message(chat_id=chat_id,
                                  text=message,
                                  parse_mode=telegram.ParseMode.MARKDOWN_V2,
@@ -118,7 +118,6 @@ class Handlers:
         else:
             Utils.send_buttons(text, update, context, chat_id)
 
-
     @staticmethod
     def material_receiver_handler(update: Update, context: CallbackContext):
         """
@@ -143,24 +142,28 @@ class Handlers:
                           f"Username: @{username}\n" \
                           "Ha inviato :"
 
-        # send message to user
-        context.bot.send_message(
-            chat_id=chat_id,
-            text=user_message
-        )
+        try:
+            # send message to user
+            context.bot.send_message(
+                chat_id=chat_id,
+                text=user_message
+            )
 
-        # send message to channel
-        context.bot.send_message(
-            chat_id=id_channel_file,
-            text=channel_message
-        )
+             # send message to channel
+            context.bot.send_message(
+                chat_id=id_channel_file,
+                text=channel_message
+            )
 
-        # forward file
-        context.bot.forward_message(
-            chat_id=id_channel_file,
-            from_chat_id=chat_id,
-            message_id=file_id
-        )
+            # forward file
+            context.bot.forward_message(
+                chat_id=id_channel_file,
+                from_chat_id=chat_id,
+                message_id=file_id
+            )
+        except:
+            Handlers.generic_error_handler(update, context, "Ci scusiamo per il disagio pare ci sia stato un errore con l'invio del file,"
+                                                              "riprovare piu tardi" ,  "material receiving:")
 
     @staticmethod
     def credits_handler(update: Update, context: CallbackContext):
@@ -432,24 +435,27 @@ class Handlers:
                 DbHandler.remove_id(chat_id=string[1])
 
     @staticmethod
-    def generic_error_handler(update: Update, context: CallbackContext):
+    def generic_error_handler(update: Update, context: CallbackContext, error_message: str, debug_message: str):
         """
         Log the error and send a telegram message to notify the developer.
+        :param debug_message:
+        :param error_message:
         :param update:
         :param context:
         :return:
         """
-        logging.debug("An Error Occurred: ")
+        logging.debug("An Error Occurred " + debug_message)
         traceback.print_tb(context.error.__traceback__)
-        message = "Ci dispiace😞😞" \
-                  "\nSembra si sia verificato un'errore perfavore riavvia il bot utilizzando il comando \/start"
+        # message = "Ci dispiace😞😞" \
+        # "\nSembra si sia verificato un'errore perfavore riavvia il bot utilizzando il comando \/start"
+
         try:
             context.bot.send_message(chat_id=update.callback_query.from_user.id,
-                                     text=message,
+                                     text=error_message,
                                      parse_mode=telegram.ParseMode.MARKDOWN_V2)
         except AttributeError:
             context.bot.send_message(chat_id=update.message.from_user.id,
-                                     text=message,
+                                     text=error_message,
                                      parse_mode=telegram.ParseMode.MARKDOWN_V2)
 
     @staticmethod
