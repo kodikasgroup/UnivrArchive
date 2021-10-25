@@ -143,23 +143,22 @@ class Handlers:
                           "Ha inviato :"
 
         try:
-            # send message to user
-            context.bot.send_message(
-                chat_id=chat_id,
-                text=user_message
-            )
-
-             # send message to channel
+            # send message to channel
             context.bot.send_message(
                 chat_id=id_channel_file,
                 text=channel_message
             )
-
             # forward file
             context.bot.forward_message(
                 chat_id=id_channel_file,
                 from_chat_id=chat_id,
                 message_id=file_id
+            )
+
+            # send message to user
+            context.bot.send_message(
+                chat_id=chat_id,
+                text=user_message
             )
         except:
             Handlers.generic_error_handler(update, context, "Ci scusiamo per il disagio pare ci sia stato un errore con l'invio del file,"
@@ -444,10 +443,11 @@ class Handlers:
         :param context:
         :return:
         """
-        logging.debug("An Error Occurred " + debug_message)
-        traceback.print_tb(context.error.__traceback__)
+        logging.debug("An Error Occurred ",debug_message)
+        #traceback.print_tb(context.error.__traceback__)
+
         # message = "Ci dispiace😞😞" \
-        # "\nSembra si sia verificato un'errore perfavore riavvia il bot utilizzando il comando \/start"
+        #"\nSembra si sia verificato un'errore perfavore riavvia il bot utilizzando il comando \/start"
 
         try:
             context.bot.send_message(chat_id=update.callback_query.from_user.id,
