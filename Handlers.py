@@ -34,6 +34,11 @@ class Handlers:
 
         DbHandler.add_user(chat_id, username, first_name)
 
+        try:
+            Utils.delete_last_message(update, context)
+        except:
+            print("No message Before Find")
+
         message = Utils.get_start_message(opening="Benvenuto/a", name=first_name)
         buttons = MainButtonsGenerator.get_start_buttons()
         doc = open('resources/video.mp4', 'rb')
@@ -86,7 +91,6 @@ class Handlers:
         :param context:
         :return:
         """
-
         chat_id = update.callback_query.from_user.id
         text = update.callback_query.data
         if text == 'HOME':
@@ -113,6 +117,7 @@ class Handlers:
                 ExclusiveButtonHandler.exclusive_button_handler(context, chat_id)
         else:
             Utils.send_buttons(text, update, context, chat_id)
+
 
     @staticmethod
     def material_receiver_handler(update: Update, context: CallbackContext):
@@ -427,7 +432,7 @@ class Handlers:
                 DbHandler.remove_id(chat_id=string[1])
 
     @staticmethod
-    def error_handler(update: Update, context: CallbackContext):
+    def generic_error_handler(update: Update, context: CallbackContext):
         """
         Log the error and send a telegram message to notify the developer.
         :param update:

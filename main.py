@@ -61,7 +61,7 @@ dispatcher.add_handler(donation_handler)
 
 dispatcher.add_handler(button_handler)
 dispatcher.add_handler(file_handler)
-dispatcher.add_error_handler(Handlers.error_handler)
+#dispatcher.add_error_handler(Handlers.error_handler)
 
 log = logging.getLogger()
 log.setLevel(logging.DEBUG)
