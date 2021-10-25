@@ -35,7 +35,7 @@ class Handlers:
         DbHandler.add_user(chat_id, username, first_name)
 
         message = Utils.get_start_message(opening="Benvenuto/a", name=first_name)
-        buttons = ButtonGenerator.get_start_buttons()
+        buttons = MainButtonsGenerator.get_start_buttons()
         doc = open('resources/video.mp4', 'rb')
         reply_markup = InlineKeyboardMarkup(buttons)
 
