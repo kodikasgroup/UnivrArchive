@@ -155,11 +155,13 @@ class Utils:
                 message_text = f"Hai scelto:\n🗄{text}🗄"
                 path = text
                 buttons = MainButtonsGenerator.get_buttons(path)
-
+                # Delete Last message
+                Utils.delete_last_message(update, context)
             reply_markup = InlineKeyboardMarkup(buttons)
             context.bot.send_message(chat_id=chat_id,
                                      text=message_text,
                                      reply_markup=reply_markup)
+
 
     @staticmethod
     def file_button_handler(context: CallbackContext, text: str, chat_id: int):
