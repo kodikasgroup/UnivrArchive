@@ -27,6 +27,12 @@ class ExclusiveButtonGenerator:
 
     @staticmethod
     def _get_exclusive_back_buttons(button_type: str, button_path: str = ""):
+        """
+
+        :param button_type: it specifies what the button represents E.G file, course ecc...
+        :param button_path: the path of the clicked buttons
+        :return:
+        """
         back_callback_data = HashHandler.generate_hash(button_path) + "#EXCLUSIVE#" + "BACK" + button_type
         return InlineKeyboardButton('<< BACK', callback_data=back_callback_data)
 

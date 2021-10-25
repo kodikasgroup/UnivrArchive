@@ -1,12 +1,15 @@
 import _io
 import os
+import re
 
 import telegram
-from telegram import Update
+from telegram import Update, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 
 from DbHandler import DbHandler
 from FileHandler import FileHandler
+from HashHandler import HashHandler
+from MainButtonsGenerator import MainButtonsGenerator
 
 
 class Utils:
@@ -109,3 +112,68 @@ class Utils:
 
         DbHandler.increase_download(chat_id)
         DbHandler.update_state(chat_id)
+
+    @staticmethod
+    def is_md5(text):
+        """
+
+        :param text: the string to chek against
+        :return:
+        """
+        # https://stackoverflow.com/a/14300703
+        pattern = "^[a-f0-9]{32}$"
+        return re.match(pattern=pattern, string=text) is not None
+
+    @staticmethod
+    def send_buttons(text, update, context, chat_id):
+        # Normal files
+        if "__file" in text:
+            Utils.file_button_handler(context, text, chat_id)
+        else:
+            if Utils.is_md5(text):
+                Utils.delete_last_message(update, context)
+                unhashed_text = HashHandler.get_corresponding_text(text)
+                splitted_text = unhashed_text.split('/')
+                splitted_text_size = len(splitted_text)
+                path = unhashed_text
+                selected_text = splitted_text[-1].replace('_', ' ').replace('-', ' ')
+                if splitted_text_size == 2:
+                    message_text = f"Hai scelto:\n{selected_text}📚📚📚"
+                    buttons = MainButtonsGenerator.get_buttons(path, two_columns=True, back_button=True)
+                elif splitted_text_size == 3:
+                    message_text = "⏰Scegli il Materiale⏰"
+                    buttons = MainButtonsGenerator.get_buttons(path, back_button=True)
+                elif splitted_text_size == 4:
+                    message_text = "💥ECCO IL MATERIALE DELLA SEZIONE💥"
+                    buttons = MainButtonsGenerator.get_buttons(path, back_button=True)
+                else:
+                    message_text = f"Hai scelto:\n{selected_text}"
+                    buttons = MainButtonsGenerator.get_buttons(path, back_button=True)
+
+            else:
+                # Study Course button clicked
+                message_text = f"Hai scelto:\n🗄{text}🗄"
+                path = text
+                buttons = MainButtonsGenerator.get_buttons(path)
+
+            reply_markup = InlineKeyboardMarkup(buttons)
+            context.bot.send_message(chat_id=chat_id,
+                                     text=message_text,
+                                     reply_markup=reply_markup)
+
+    @staticmethod
+    def file_button_handler(context: CallbackContext, text: str, chat_id: int):
+        """
+
+        :param context:
+        :param text: the hashed callback data in the following
+               format `course/year/subject/subdir/FileName__file`
+        :param chat_id:
+        :return:
+        """
+
+        text = text.split("__")[0]
+        text = HashHandler.get_corresponding_text(text)
+        path = "archive" + "/" + text
+
+        Utils.send_file(context, path, chat_id)
