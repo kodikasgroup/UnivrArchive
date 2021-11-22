@@ -19,7 +19,7 @@ class Handlers:
     rootUsers = []
 
     @staticmethod
-    def start_handler(update: Update, context: CallbackContext) -> None:
+    def start_handler(update: Update, context: CallbackContext, **kwargs) -> None:
         """
         handle the command /start, it sends a gif, a welcome message and shows the
         buttons to access the archive
@@ -28,9 +28,14 @@ class Handlers:
         :return:
         """
 
-        chat_id = update.message.chat_id
-        first_name = update.message.chat.first_name
-        username = update.message.from_user.username
+        if "restart_error" in kwargs and kwargs["restart_error"] is True:
+            chat_id = update.callback_query.from_user.id
+            first_name = update.callback_query.from_user.first_name
+            username = update.callback_query.from_user.username
+        else:
+            chat_id = update.message.chat_id
+            first_name = update.message.chat.first_name
+            username = update.message.from_user.username
 
         DbHandler.add_user(chat_id, username, first_name)
 
@@ -53,6 +58,7 @@ class Handlers:
                                  text=message,
                                  parse_mode=telegram.ParseMode.MARKDOWN_V2,
                                  reply_markup=reply_markup)
+
 
     @staticmethod
     def info_handler(update: Update, context: CallbackContext):

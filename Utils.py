@@ -182,9 +182,9 @@ class Utils:
             Utils.generic_error_handler(update, context,
                                         "Sembra che non ci siano file qua", "send buttons:")
         except:
-            #Handlers.Handlers.start_handler(update, context)
-            Utils.generic_error_handler(update, context,
-                                        "Ci sono stati degli errori prova a riavviare /start", "Generic BadRequest:")
+            Handlers.Handlers.start_handler(update, context, restart_error=True)
+            #Utils.generic_error_handler(update, context,
+             #                           "Ci sono stati degli errori prova a riavviare /start", "Generic BadRequest:")
 
     @staticmethod
     def file_button_handler(context: CallbackContext, text: str, chat_id: int):
