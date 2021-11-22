@@ -3,7 +3,7 @@ import traceback
 
 import telegram
 from decouple import config
-from telegram import Update, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.error import BadRequest
 from telegram.ext import CallbackContext
 
@@ -93,30 +93,37 @@ class Handlers:
         """
         chat_id = update.callback_query.from_user.id
         text = update.callback_query.data
-        if text == 'HOME':
+
+        try:
+            if text == 'HOME':
+                MainButtonsHandler.home_button_handler(update, context)
+            elif 'BACK' in text:
+                if 'EXCLUSIVE' in text:
+                    ExclusiveButtonHandler.back_button_handler(update, context, text, chat_id)
+                else:
+                    MainButtonsHandler.back_button_handler(update, context, text)
+            elif 'EXCLUSIVE' in text:
+                # Exclusive section
+                if '__course' in text:
+                    Utils.delete_last_message(update, context)
+                    ExclusiveButtonHandler.course_button_handler(context, text, chat_id)
+                elif '__year' in text:
+                    ExclusiveButtonHandler.year_button_handler(update, context, text, chat_id)
+                    pass
+                elif '__subject' in text:
+                    ExclusiveButtonHandler.subject_button_handler(update, context, text, chat_id)
+                elif '__file' in text:
+                    ExclusiveButtonHandler.file_button_handler(context, text, chat_id)
+                else:
+                    # handle when the user click the EXCLUSIVE button
+                    ExclusiveButtonHandler.exclusive_button_handler(context, chat_id)
+            else:
+                Utils.send_buttons(text, update, context, chat_id)
+        except:
             MainButtonsHandler.home_button_handler(update, context)
-        elif 'BACK' in text:
-            if 'EXCLUSIVE' in text:
-                ExclusiveButtonHandler.back_button_handler(update, context, text, chat_id)
-            else:
-                MainButtonsHandler.back_button_handler(update, context, text)
-        elif 'EXCLUSIVE' in text:
-            # Exclusive section
-            if '__course' in text:
-                Utils.delete_last_message(update, context)
-                ExclusiveButtonHandler.course_button_handler(context, text, chat_id)
-            elif '__year' in text:
-                ExclusiveButtonHandler.year_button_handler(update, context, text, chat_id)
-                pass
-            elif '__subject' in text:
-                ExclusiveButtonHandler.subject_button_handler(update, context, text, chat_id)
-            elif '__file' in text:
-                ExclusiveButtonHandler.file_button_handler(context, text, chat_id)
-            else:
-                # handle when the user click the EXCLUSIVE button
-                ExclusiveButtonHandler.exclusive_button_handler(context, chat_id)
-        else:
-            Utils.send_buttons(text, update, context, chat_id)
+            Utils.generic_error_handler(update, context,
+                                           "Ci sono stati problemi prova a riavviare /start", "generic buttons error:")
+
 
     @staticmethod
     def material_receiver_handler(update: Update, context: CallbackContext):
@@ -161,7 +168,7 @@ class Handlers:
                 text=user_message
             )
         except:
-            Handlers.generic_error_handler(update, context, "Ci scusiamo per il disagio pare ci sia stato un errore con l'invio del file,"
+            Utils.generic_error_handler(update, context, "Ci scusiamo per il disagio pare ci sia stato un errore con l'invio del file,"
                                                               "riprovare piu tardi" ,  "material receiving:")
 
     @staticmethod
@@ -198,14 +205,19 @@ class Handlers:
         message = f"ID:{chat_id} User:@{username}\n" + user_message
         reply_message = "Il feedback é stato inviato con successo , ti ringraziamo per la collaborazione"
 
-        context.bot.send_message(
-            chat_id=id_channel_feedback,
-            text=message
-        )
-        context.bot.send_message(
-            chat_id=chat_id,
-            text=reply_message
-        )
+        try:
+            context.bot.send_message(
+                chat_id=id_channel_feedback,
+                text=message
+            )
+            context.bot.send_message(
+                chat_id=chat_id,
+                text=reply_message
+            )
+        except:
+            Utils.generic_error_handler(update, context,
+                                           "Pare ci sia stato un errore il tuo feedback non é arrivato a destinazione,"
+                                           "ci scusiamo per il disagio ripsorva piu tardi", "send feedback:")
 
     @staticmethod
     def root_handler(update: Update, context: CallbackContext):
@@ -255,8 +267,9 @@ class Handlers:
         chat_id = update.message.from_user.id
         if chat_id in Handlers.rootUsers:
             data = DbHandler.get_stats()
-            message = f"Total Download = {data[0]}\n" \
-                      f"Total User = {data[1]}"
+            message = f"Total Users  = {data[2]}\n" \
+                      f"Active Users = {data[1]}\n" \
+                      f"Total Download = {data[0]}"
             context.bot.send_message(
                 chat_id=chat_id,
                 text=message
@@ -432,31 +445,6 @@ class Handlers:
             else:
                 """by ID"""
                 DbHandler.remove_id(chat_id=string[1])
-
-    @staticmethod
-    def generic_error_handler(update: Update, context: CallbackContext, error_message: str, debug_message: str):
-        """
-        Log the error and send a telegram message to notify the developer.
-        :param debug_message:
-        :param error_message:
-        :param update:
-        :param context:
-        :return:
-        """
-        logging.debug("An Error Occurred ",debug_message)
-        #traceback.print_tb(context.error.__traceback__)
-
-        # message = "Ci dispiace😞😞" \
-        #"\nSembra si sia verificato un'errore perfavore riavvia il bot utilizzando il comando \/start"
-
-        try:
-            context.bot.send_message(chat_id=update.callback_query.from_user.id,
-                                     text=error_message,
-                                     parse_mode=telegram.ParseMode.MARKDOWN_V2)
-        except AttributeError:
-            context.bot.send_message(chat_id=update.message.from_user.id,
-                                     text=error_message,
-                                     parse_mode=telegram.ParseMode.MARKDOWN_V2)
 
     @staticmethod
     def donation_handler(update: Update, context: CallbackContext):

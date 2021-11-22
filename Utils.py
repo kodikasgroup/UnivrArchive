@@ -1,4 +1,5 @@
 import _io
+import logging
 import os
 import re
 
@@ -6,6 +7,7 @@ import telegram
 from telegram import Update, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 
+import Handlers
 from DbHandler import DbHandler
 from FileHandler import FileHandler
 from HashHandler import HashHandler
@@ -127,41 +129,62 @@ class Utils:
     @staticmethod
     def send_buttons(text, update, context, chat_id):
         # Normal files
-        if "__file" in text:
-            Utils.file_button_handler(context, text, chat_id)
-        else:
-            if Utils.is_md5(text):
-                Utils.delete_last_message(update, context)
-                unhashed_text = HashHandler.get_corresponding_text(text)
-                splitted_text = unhashed_text.split('/')
-                splitted_text_size = len(splitted_text)
-                path = unhashed_text
-                selected_text = splitted_text[-1].replace('_', ' ').replace('-', ' ')
-                if splitted_text_size == 2:
-                    message_text = f"Hai scelto:\n{selected_text}📚📚📚"
-                    buttons = MainButtonsGenerator.get_buttons(path, two_columns=True, back_button=True)
-                elif splitted_text_size == 3:
-                    message_text = "⏰Scegli il Materiale⏰"
-                    buttons = MainButtonsGenerator.get_buttons(path, back_button=True)
-                elif splitted_text_size == 4:
-                    message_text = "💥ECCO IL MATERIALE DELLA SEZIONE💥"
-                    buttons = MainButtonsGenerator.get_buttons(path, back_button=True)
-                else:
-                    message_text = f"Hai scelto:\n{selected_text}"
-                    buttons = MainButtonsGenerator.get_buttons(path, back_button=True)
 
+        try:
+            if "__file" in text:
+                Utils.file_button_handler(context, text, chat_id)
             else:
-                # Study Course button clicked
-                message_text = f"Hai scelto:\n🗄{text}🗄"
-                path = text
-                buttons = MainButtonsGenerator.get_buttons(path)
-                # Delete Last message
-                Utils.delete_last_message(update, context)
-            reply_markup = InlineKeyboardMarkup(buttons)
-            context.bot.send_message(chat_id=chat_id,
-                                     text=message_text,
-                                     reply_markup=reply_markup)
+                if Utils.is_md5(text):
+                    Utils.delete_last_message(update, context)
+                    unhashed_text = HashHandler.get_corresponding_text(text)
+                    splitted_text = unhashed_text.split('/')
+                    splitted_text_size = len(splitted_text)
+                    path = unhashed_text
+                    selected_text = splitted_text[-1].replace('_', ' ').replace('-', ' ')
+                    try:
+                        if splitted_text_size == 2:
+                            message_text = f"Hai scelto:\n{selected_text}📚📚📚"
+                            buttons = MainButtonsGenerator.get_buttons(path, two_columns=True, back_button=True)
+                        elif splitted_text_size == 3:
+                            message_text = "⏰Scegli il Materiale⏰"
+                            buttons = MainButtonsGenerator.get_buttons(path, back_button=True)
+                        elif splitted_text_size == 4:
+                            message_text = "💥ECCO IL MATERIALE DELLA SEZIONE💥"
+                            buttons = MainButtonsGenerator.get_buttons(path, back_button=True)
+                        else:
+                            message_text = f"Hai scelto:\n{selected_text}"
+                            buttons = MainButtonsGenerator.get_buttons(path, back_button=True)
+                    except IndexError:
+                        message_text += f"\n\n Sembra non ci sia nulla qua"
+                        buttons = MainButtonsGenerator.get_empty_buttons(path, back_button=True)
+                        # Utils.generic_error_handler(update, context,
+                        #                            "Sembra che non ci siano file qua", "send buttons:")
 
+                else:
+                    # Study Course button clicked
+                    message_text = f"Hai scelto:\n🗄{text}🗄"
+                    path = text
+                    try:
+                        buttons = MainButtonsGenerator.get_buttons(path)
+                    except IndexError:
+                        message_text += f"\n\n Sembra non ci sia nulla qua"
+                        buttons = MainButtonsGenerator.get_empty_buttons(path)
+                    # delete last message
+                    Utils.delete_last_message(update, context)
+
+                reply_markup = InlineKeyboardMarkup(buttons)
+                context.bot.send_message(chat_id=chat_id,
+                                         text=message_text,
+                                         reply_markup=reply_markup)
+
+        # It is not used it is only as a precaution
+        except IndexError:
+            Utils.generic_error_handler(update, context,
+                                        "Sembra che non ci siano file qua", "send buttons:")
+        except:
+            #Handlers.Handlers.start_handler(update, context)
+            Utils.generic_error_handler(update, context,
+                                        "Ci sono stati degli errori prova a riavviare /start", "Generic BadRequest:")
 
     @staticmethod
     def file_button_handler(context: CallbackContext, text: str, chat_id: int):
@@ -179,3 +202,30 @@ class Utils:
         path = "archive" + "/" + text
 
         Utils.send_file(context, path, chat_id)
+
+    @staticmethod
+    def generic_error_handler(update: Update, context: CallbackContext, error_message: str, debug_message: str):
+        """
+        Log the error and send a telegram message to notify the developer.
+        :param debug_message:
+        :param error_message:
+        :param update:
+        :param context:
+        :return:
+        """
+        logging.debug("An Error Occurred ", debug_message)
+        # traceback.print_tb(context.error.__traceback__)
+
+        # message = "Ci dispiace😞😞" \
+        # "\nSembra si sia verificato un'errore perfavore riavvia il bot utilizzando il comando \/start"
+
+        try:
+            context.bot.send_message(chat_id=update.callback_query.from_user.id,
+                                     text=error_message,
+                                     parse_mode=telegram.ParseMode.MARKDOWN_V2)
+        except AttributeError:
+            context.bot.send_message(chat_id=update.message.from_user.id,
+                                     text=error_message,
+                                     parse_mode=telegram.ParseMode.MARKDOWN_V2)
+
+        return

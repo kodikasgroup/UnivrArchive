@@ -110,11 +110,17 @@ class DbHandler:
         """
         data = DbHandler.db_connection.get_stats()
         downloads = 0
-        user_count = 0
+        d_user_count = 0
         for _, d in data:
             downloads += d
-            user_count += 1
-        return downloads, user_count
+            d_user_count += 1
+
+        data_user = DbHandler.db_connection.get_all_chat_id()
+        total_user = 0
+        for _ in data_user:
+            total_user += 1
+
+        return downloads, d_user_count, total_user
 
     @staticmethod
     def get_id(username: str) -> int:

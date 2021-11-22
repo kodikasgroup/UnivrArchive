@@ -15,6 +15,7 @@ class MainButtonsGenerator:
         :return: a list of buttons built following the given parameters
         """
 
+
         path = "archive" + "/" + button_path
         # since the directory name could contain an underscore we use double underscore to separate the
         # given string from the rest
@@ -50,6 +51,26 @@ class MainButtonsGenerator:
             # each button should be contained into a list
             buttons = [[b] for b in buttons]
 
+        if "back_button" in kwargs and kwargs["back_button"] is True:
+            back_callback_data = HashHandler.generate_hash(button_path)
+            buttons.append(
+                [
+                    InlineKeyboardButton('<< BACK', callback_data=back_callback_data+"/BACK"),
+                    InlineKeyboardButton('🏠HOME', callback_data='HOME')
+                ]
+            )
+        else:
+            buttons.append(
+                [
+                    InlineKeyboardButton('🏠HOME', callback_data='HOME')
+                ]
+            )
+
+        return buttons
+
+    @staticmethod
+    def get_empty_buttons(button_path: str = "", **kwargs):
+        buttons = []
         if "back_button" in kwargs and kwargs["back_button"] is True:
             back_callback_data = HashHandler.generate_hash(button_path)
             buttons.append(
