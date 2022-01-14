@@ -28,7 +28,7 @@ class DbConnection:
         try:
             cur = self.conn.cursor()
             if len(args) != 0:
-                cur.execute(query, args)
+                cur.execute(query, *args)
             else:
                 cur.execute(query)
             self.conn.commit()
