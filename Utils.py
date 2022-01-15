@@ -2,6 +2,7 @@ import _io
 import logging
 import os
 import re
+import traceback
 
 import telegram
 from telegram import Update, InlineKeyboardMarkup
@@ -157,9 +158,6 @@ class Utils:
                     except IndexError:
                         message_text += f"\n\n Sembra non ci sia nulla qua"
                         buttons = MainButtonsGenerator.get_empty_buttons(path, back_button=True)
-                        # Utils.generic_error_handler(update, context,
-                        #                            "Sembra che non ci siano file qua", "send buttons:")
-
                 else:
                     # Study Course button clicked
                     message_text = f"Hai scelto:\n🗄{text}🗄"
@@ -176,15 +174,13 @@ class Utils:
                 context.bot.send_message(chat_id=chat_id,
                                          text=message_text,
                                          reply_markup=reply_markup)
-
         # It is not used it is only as a precaution
-        except IndexError:
+        except IndexError as e:
             Utils.generic_error_handler(update, context,
                                         "Sembra che non ci siano file qua", "send buttons:")
-        except:
+        except Exception as e:
+            print(traceback.format_exc())
             Handlers.Handlers.start_handler(update, context, restart_error=True)
-            #Utils.generic_error_handler(update, context,
-             #                           "Ci sono stati degli errori prova a riavviare /start", "Generic BadRequest:")
 
     @staticmethod
     def file_button_handler(context: CallbackContext, text: str, chat_id: int):
@@ -214,10 +210,7 @@ class Utils:
         :return:
         """
         logging.debug("An Error Occurred ", debug_message)
-        # traceback.print_tb(context.error.__traceback__)
-
-        # message = "Ci dispiace😞😞" \
-        # "\nSembra si sia verificato un'errore perfavore riavvia il bot utilizzando il comando \/start"
+        print(traceback.format_exc())
 
         try:
             context.bot.send_message(chat_id=update.callback_query.from_user.id,

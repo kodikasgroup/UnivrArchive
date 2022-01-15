@@ -13,7 +13,7 @@ class DbConnection:
         """
         path = 'db/UserLogDB.db'
         try:
-            self.conn = sqlite3.connect(path, check_same_thread=False)
+            self.conn: sqlite3.Connection = sqlite3.connect(path, check_same_thread=False)
             logging.debug("Connected to DB!")
         except sqlite3.Error as error:
             logging.debug("An Error Occurred during db connection: ")
@@ -26,9 +26,9 @@ class DbConnection:
         :return:
         """
         try:
-            cur = self.conn.cursor()
+            cur: sqlite3.Cursor = self.conn.cursor()
             if len(args) != 0:
-                cur.execute(query, *args)
+                cur.execute(query, args)
             else:
                 cur.execute(query)
             self.conn.commit()
@@ -159,7 +159,7 @@ class DbConnection:
         :return:
         """
         query = "INSERT INTO User VALUES (?, ?, ?, ?)"
-        self.__execute__query(query, (chat_id, f_name, username, today))
+        self.__execute__query(query, chat_id, f_name, username, today)
 
     def add_vip(self, chat_id: int) -> None:
         """
