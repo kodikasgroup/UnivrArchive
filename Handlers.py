@@ -364,7 +364,7 @@ class Handlers:
             user_identifier = splitted_string[0]
 
             message_to_user = splitted_string[1]
-            message_to_root = "The message has send to {}"
+            message_to_root = "The message has been sent to {}"
             if '@' in user_identifier:
                 """By Username"""
                 user_id = DbHandler.get_id(user_identifier[1:])
@@ -389,7 +389,7 @@ class Handlers:
                             text=message_to_user
                         )
                         sent_messages += 1
-                    except BadRequest:
+                    except Exception:
                         DbHandler.remove_id(chat_id=id_t[0])
                 context.bot.send_message(
                     chat_id=chat_id,
