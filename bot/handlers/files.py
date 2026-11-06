@@ -162,8 +162,8 @@ def purchase_view(node: archive.Node, balance: int) -> tuple[str, InlineKeyboard
         buy = InlineKeyboardButton(text=T.buy_button(node.price), callback_data=f"buy:{node.id}",
                                    style="success")
     else:  # solo estetica: buy: rifà comunque il controllo lato server
-        buy = InlineKeyboardButton(text=T.buy_button(node.price), callback_data="noop",
-                                   style="success", disabled=DisabledButton())
+        buy = InlineKeyboardButton(text=T.buy_button(node.price), style="success",
+                                   disabled=DisabledButton())
     cancel = InlineKeyboardButton(text=T.CANCEL, callback_data=f"n:{node.parent_id or 0}",
                                   style="danger")
     text = T.purchase_card(node.name, node.size, node.price, balance)
@@ -208,10 +208,12 @@ async def deliver(bot: Bot, settings: Settings, user_id: int, node: archive.Node
 
 
 async def group_hint(bot: Bot, q: CallbackQuery, node: archive.Node) -> None:
-    """Nel gruppo: l'utente deve aprire il bot in privato (messaggio effimero)."""
+    """Nel gruppo: l'utente deve aprire il bot in privato (messaggio effimero).
+    `node` può essere anche una cartella ("scarica tutto")."""
     await ensure_username(bot)
+    kind = "n" if node.is_dir else "f"
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
-        text=T.OPEN_PRIVATE_BUTTON, url=keyboards.deep_link("f", node.id))]])
+        text=T.OPEN_PRIVATE_BUTTON, url=keyboards.deep_link(kind, node.id))]])
     try:
         await send_ephemeral(bot, q.message.chat.id, q.from_user.id, T.OPEN_PRIVATE, kb,
                              callback_query_id=q.id)
@@ -224,9 +226,9 @@ async def open_file(bot: Bot, settings: Settings, user: User, node: archive.Node
     """Click su un file (callback `n:<id>`) o deep link `f_<id>` (q=None).
     Risponde alla callback, se c'è."""
     await ensure_username(bot)
-    if q is not None:
-        await q.answer()
     in_group = q is not None and is_group_query(q)
+    if q is not None and not (in_group and owns(user.id, node)):
+        await q.answer()
     if not owns(user.id, node):
         if in_group:
             return await group_hint(bot, q, node)
@@ -236,8 +238,20 @@ async def open_file(bot: Bot, settings: Settings, user: User, node: archive.Node
         await bot.send_message(user.id, text, reply_markup=kb)
         return
     result = await deliver(bot, settings, user.id, node)
-    if result == "forbidden" and in_group:
+    if not in_group:
+        return
+    # dal gruppo: conferma con un toast (§9.9), oppure "aprimi in privato"
+    await _answer_quietly(q, T.SENT_PRIVATE if result == "ok" else None)
+    if result == "forbidden":
         await group_hint(bot, q, node)
+
+
+async def _answer_quietly(q: CallbackQuery, text: str | None = None) -> None:
+    """Risponde alla callback ignorando "query too old" (l'invio può durare)."""
+    try:
+        await q.answer(text)
+    except TelegramBadRequest:
+        pass
 
 
 # --- acquisto -----------------------------------------------------------------------
@@ -247,9 +261,11 @@ async def open_file(bot: Bot, settings: Settings, user: User, node: archive.Node
 async def on_buy(q: CallbackQuery, bot: Bot, settings: Settings) -> None:
     ids = parse_ints(q.data)
     node = archive.tree.get(ids[0]) if ids and len(ids) == 1 else None
-    if node is None or node.is_dir or node.price <= 0:
+    if node is None or node.is_dir:
         await q.answer(T.FILE_GONE, show_alert=True)
         return
+    if node.price <= 0:  # nel frattempo è diventato gratuito: lo si consegna e basta
+        return await open_file(bot, settings, q.from_user, node, q=q)
     if is_group_query(q):
         await q.answer()
         return await group_hint(bot, q, node)
@@ -316,14 +332,27 @@ async def on_report(q: CallbackQuery, bot: Bot, settings: Settings) -> None:
             await q.answer(T.REPORT_ALREADY)
         else:
             from bot.handlers import tickets  # T4: import tardivo, evita cicli
-            _reported[key] = now
-            await tickets.open_ticket(bot, settings, q.from_user, "report",
-                                      text=T.REPORT_REASONS[reason], node_id=node_id)
+            _remember_report(key, now)
+            try:
+                await tickets.open_ticket(bot, settings, q.from_user, "report",
+                                          text=T.REPORT_REASONS[reason], node_id=node_id)
+            except Exception:
+                log.exception("segnalazione di %s su %s non aperta", key[0], node_id)
+                _reported.pop(key, None)   # così può riprovare subito
+                await q.answer(T.REPORT_ERROR, show_alert=True)
+                return
             await q.answer(T.REPORT_DONE)
     else:
         await q.answer()
     if isinstance(msg, Message):
         await _edit_markup(msg, file_keyboard(node))
+
+
+def _remember_report(key: tuple[int, int], now: float) -> None:
+    """Registra la segnalazione e butta quelle col cooldown scaduto."""
+    for k in [k for k, t in _reported.items() if now - t >= REPORT_COOLDOWN]:
+        del _reported[k]
+    _reported[key] = now
 
 
 async def _edit_markup(msg: Message, kb: InlineKeyboardMarkup) -> None:
@@ -366,10 +395,11 @@ async def on_all(q: CallbackQuery, bot: Bot, settings: Settings) -> None:
         ])
         await show_view(bot, q, T.all_confirm(len(files), sum(f.size for f in files)), kb)
         return
+    # registrato PRIMA di qualsiasi await: un doppio tocco trova già il download
+    _active_downloads[user_id] = asyncio.create_task(download_all(
+        bot, settings, user_id, files, group_q=q if is_group_query(q) else None,
+        folder=folder_node))
     await q.answer()
-    await ensure_username(bot)
-    _active_downloads[user_id] = asyncio.create_task(
-        download_all(bot, settings, user_id, files))
     if confirmed:  # il messaggio di conferma torna a essere il menu
         text, kb = keyboards.folder(node_id, mode="browse",
                                     is_admin=user_id in settings.admin_ids
@@ -378,8 +408,10 @@ async def on_all(q: CallbackQuery, bot: Bot, settings: Settings) -> None:
 
 
 async def download_all(bot: Bot, settings: Settings, user_id: int,
-                       nodes: list[archive.Node]) -> None:
-    """Invio in background, ~1 file/s, messaggio di stato ogni 10 file."""
+                       nodes: list[archive.Node], *, group_q: CallbackQuery | None = None,
+                       folder: archive.Node | None = None) -> None:
+    """Invio in background, ~1 file/s, messaggio di stato ogni 10 file.
+    `group_q`: la richiesta viene da un gruppo (per l'hint "aprimi in privato")."""
     total = len(nodes)
     done = 0
     status: Message | None = None
@@ -387,8 +419,14 @@ async def download_all(bot: Bot, settings: Settings, user_id: int,
         try:
             status = await bot.send_message(user_id, T.all_progress(0, total))
         except TelegramForbiddenError:
+            if group_q is not None and folder is not None:
+                await group_hint(bot, group_q, folder)
             return
-        for i, node in enumerate(nodes, 1):
+        for i, old in enumerate(nodes, 1):
+            # riletto a ogni invio: un /reindex può averlo rimosso o reso Exclusive
+            node = archive.tree.get(old.id)
+            if node is None or node.is_dir or node.price > 0 or node.is_exclusive:
+                continue
             sent = await _send_plain(bot, settings, user_id, node)
             if sent is None:  # l'utente ha bloccato il bot: inutile continuare
                 break
@@ -401,7 +439,9 @@ async def download_all(bot: Bot, settings: Settings, user_id: int,
     except Exception:
         log.exception("scarica tutto fallito")
     finally:
-        _active_downloads.pop(user_id, None)
+        # solo la propria voce: non quella di un download partito dopo
+        if _active_downloads.get(user_id) is asyncio.current_task():
+            del _active_downloads[user_id]
 
 
 async def _send_plain(bot: Bot, settings: Settings, user_id: int,

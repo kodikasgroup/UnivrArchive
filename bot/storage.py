@@ -37,6 +37,7 @@ class Blob:
 _locks: dict[str, asyncio.Lock] = {}
 _refresh_tried: set[str] = set()
 _background: asyncio.Task | None = None
+_progress: Callable[[int, int], Awaitable[None]] | None = None  # avanzamento del task in corso
 
 
 def remember_file_id(sha256: str, file_id: str, file_unique_id: str) -> None:
@@ -123,9 +124,12 @@ async def send_file(
     if not node.sha256:
         raise ValueError("send_file: il nodo non ha sha256")
     blob = db_nodes.get_blob(node.sha256)
+    extra = {"message_effect_id": message_effect_id} if message_effect_id else {}
+    if blob is not None and not blob.file_id and blob.storage_message_id:
+        # nel canale ma senza file_id (es. token nuovo): copia dal canale, niente upload dal disco
+        return await _copy_from_channel(bot, settings, chat_id, node, blob, caption, reply_markup, protect, extra)
     if blob is None or not blob.file_id:
         blob = await ensure_uploaded(bot, settings, node)
-    extra = {"message_effect_id": message_effect_id} if message_effect_id else {}
 
     async def send(file_id: str) -> Message:
         return await bot.send_document(
@@ -139,21 +143,50 @@ async def send_file(
             raise
         log.warning("file_id non valido per %s, recupero", node.sha256[:12])
     if blob.storage_message_id:
-        # copyMessage restituisce solo il message_id, non il file_id: lo rinfreschiamo in background
-        copied = await bot.copy_message(
-            chat_id, settings.storage_chat_id, blob.storage_message_id,
-            caption=caption, reply_markup=reply_markup, protect_content=protect,
-        )
-        _schedule_refresh(bot, settings, node)
-        return Message(message_id=copied.message_id, date=datetime.now(timezone.utc), chat=Chat(id=chat_id, type="private"))
+        return await _copy_from_channel(bot, settings, chat_id, node, blob, caption, reply_markup, protect, extra)
     # niente copia nel canale: ricarica dal disco e riprova
-    blob = await _reupload(bot, settings, node)
+    blob = await _reupload(bot, settings, node, blob.file_id)
     return await send(blob.file_id)
 
 
-async def _reupload(bot: Bot, settings: Settings, node: Node) -> Blob:
+async def _copy_from_channel(
+    bot: Bot, settings: Settings, chat_id: int, node: Node, blob: Blob,
+    caption: str, reply_markup: InlineKeyboardMarkup | None, protect: bool, extra: dict,
+) -> Message:
+    """copy_message dal canale con la NOSTRA didascalia e ricava un file_id nuovo."""
+    copied = await bot.copy_message(
+        chat_id, settings.storage_chat_id, blob.storage_message_id,
+        caption=caption, protect_content=protect, **extra,
+    )
+    msg: Message | None = None
+    if reply_markup is not None:
+        # copyMessage restituisce solo il message_id: aggiungere la tastiera dopo restituisce il
+        # messaggio completo, e con lui il file_id valido per questo bot
+        try:
+            edited = await bot.edit_message_reply_markup(
+                chat_id=chat_id, message_id=copied.message_id, reply_markup=reply_markup
+            )
+        except TelegramBadRequest:
+            log.warning("tastiera non aggiunta alla copia di %s", node.sha256[:12])
+            edited = None
+        if isinstance(edited, Message):
+            msg = edited
+    doc = msg and (msg.document or msg.audio or msg.video or msg.animation or msg.voice)
+    if doc:
+        db_nodes.set_file_id(node.sha256, doc.file_id, doc.file_unique_id)
+        return msg
+    # file_id non ricavabile dalla copia: lo rinfreschiamo in background dal disco
+    _schedule_refresh(bot, settings, node, blob.file_id)
+    return msg or Message(message_id=copied.message_id, date=datetime.now(timezone.utc), chat=Chat(id=chat_id, type="private"))
+
+
+async def _reupload(bot: Bot, settings: Settings, node: Node, failed_file_id: str | None) -> Blob:
     lock = _locks.setdefault(node.sha256, asyncio.Lock())
     async with lock:
+        # un altro utente ha già rinfrescato il file_id mentre aspettavamo il lock?
+        blob = db_nodes.get_blob(node.sha256)
+        if blob and blob.file_id and blob.file_id != failed_file_id:
+            return blob
         msg = await _channel_send(
             bot, settings.storage_chat_id, _disk_file(settings, node.path),
             _caption_for_channel(node.path, node.sha256),
@@ -161,7 +194,7 @@ async def _reupload(bot: Bot, settings: Settings, node: Node) -> Blob:
         return _save(node.sha256, msg)
 
 
-def _schedule_refresh(bot: Bot, settings: Settings, node: Node) -> None:
+def _schedule_refresh(bot: Bot, settings: Settings, node: Node, failed_file_id: str | None) -> None:
     """Ricava un file_id valido ricaricando dal disco (una volta per contenuto e per processo)."""
     if node.sha256 in _refresh_tried or not (Path(settings.archive_dir) / node.path).is_file():
         return
@@ -169,7 +202,7 @@ def _schedule_refresh(bot: Bot, settings: Settings, node: Node) -> None:
 
     async def run() -> None:
         try:
-            await _reupload(bot, settings, node)
+            await _reupload(bot, settings, node, failed_file_id)
         except Exception:
             log.exception("refresh file_id fallito per %s", node.path)
 
@@ -180,39 +213,48 @@ def resume_background_upload(
     bot: Bot, settings: Settings, progress: Callable[[int, int], Awaitable[None]] | None = None
 ) -> asyncio.Task | None:
     """Carica i blob senza storage_message_id. Un solo task alla volta; None se non c'è nulla da fare."""
-    global _background
+    global _background, _progress
     if _background is not None and not _background.done():
+        if progress is not None:  # l'ultimo che chiede riceve l'avanzamento
+            _progress = progress
         return _background
-    todo = db_nodes.blobs_to_upload()
-    if not todo:
+    if not db_nodes.blobs_to_upload():
         return None
-    _background = asyncio.get_running_loop().create_task(_run_background(bot, settings, todo, progress))
+    _progress = progress
+    _background = asyncio.get_running_loop().create_task(_run_background(bot, settings))
     return _background
 
 
-async def _run_background(bot, settings, todo: list[tuple[str, str]], progress) -> None:
-    total = len(todo)
+async def _run_background(bot, settings) -> None:
+    """Ripete la query finché resta qualcosa: i blob aggiunti da un /reindex nel frattempo
+    entrano nel giro dopo; quelli falliti in questo giro si riprovano al prossimo avvio."""
+    failed: set[tuple[str, str]] = set()
     done = 0
+    total = 0
     last_send = 0.0
-    for sha, path in todo:
-        blob = db_nodes.get_blob(sha)
-        if blob and blob.storage_message_id:
+    while todo := [t for t in db_nodes.blobs_to_upload() if tuple(t) not in failed]:
+        total = done + len(todo)
+        for sha, path in todo:
+            blob = db_nodes.get_blob(sha)
+            if blob and blob.storage_message_id:
+                done += 1
+                continue
+            wait = UPLOAD_INTERVAL - (time.monotonic() - last_send)
+            if wait > 0:
+                await asyncio.sleep(wait)
+            try:
+                await _upload(bot, settings, sha, path)
+            except FileNotFoundError:
+                log.warning("file mancante su disco, salto: %s", path)
+                failed.add((sha, path))
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("upload fallito: %s", path)
+                failed.add((sha, path))
+            last_send = time.monotonic()
             done += 1
-            continue
-        wait = UPLOAD_INTERVAL - (time.monotonic() - last_send)
-        if wait > 0:
-            await asyncio.sleep(wait)
-        try:
-            await _upload(bot, settings, sha, path)
-        except FileNotFoundError:
-            log.warning("file mancante su disco, salto: %s", path)
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            log.exception("upload fallito: %s", path)
-        last_send = time.monotonic()
-        done += 1
-        if progress and done % 10 == 0:
-            await progress(done, total)
-    if progress and done % 10 != 0:
-        await progress(done, total)
+            if _progress and done % 10 == 0:
+                await _progress(done, total)
+    if _progress and done % 10 != 0:
+        await _progress(done, total)

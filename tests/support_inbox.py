@@ -2,7 +2,6 @@
 DB temporaneo, bot finto che registra le chiamate (nessuna rete)."""
 
 import importlib
-import sqlite3
 import sys
 import types
 from dataclasses import dataclass
@@ -20,26 +19,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import bot as bot_pkg  # noqa: E402
-
-SCHEMA = """
-CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, first_name TEXT,
-  credits INTEGER NOT NULL DEFAULT 0 CHECK (credits >= 0), vip_until TEXT,
-  downloads INTEGER NOT NULL DEFAULT 0, blocked INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')), last_seen TEXT);
-CREATE TABLE credit_log (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, delta INTEGER NOT NULL,
-  reason TEXT NOT NULL, at TEXT NOT NULL DEFAULT (datetime('now')));
-CREATE TABLE submissions (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, file_id TEXT NOT NULL,
-  file_unique_id TEXT NOT NULL, file_name TEXT NOT NULL, size INTEGER, sha256 TEXT, inbox_path TEXT,
-  duplicate_of INTEGER, hint_node_id INTEGER, user_message_id INTEGER, staff_message_id INTEGER,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected','duplicate')),
-  credits INTEGER NOT NULL DEFAULT 0, dest_path TEXT, reviewed_by INTEGER, reviewed_at TEXT,
-  at TEXT NOT NULL DEFAULT (datetime('now')));
-CREATE TABLE tickets (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL,
-  kind TEXT NOT NULL CHECK (kind IN ('feedback','report','removal')), node_id INTEGER, text TEXT,
-  staff_message_id INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','closed')),
-  closed_by INTEGER, at TEXT NOT NULL DEFAULT (datetime('now')));
-CREATE UNIQUE INDEX tickets_staff_msg ON tickets(staff_message_id);
-"""
 
 
 def _missing(name: str) -> bool:
@@ -114,46 +93,23 @@ def _ensure_stubs() -> None:
 
         m.IsAdmin, m.IsPrivate = IsAdmin, IsPrivate
         _install("bot.filters", m)
-    if _missing("bot.db") or not hasattr(importlib.import_module("bot.db"), "init"):
-        m = types.ModuleType("bot.db")
-        m.__path__ = [str(ROOT / "bot" / "db")]
-        m.conn = None
-
-        def add_credits(user_id, delta, reason):
-            with m.conn:
-                row = m.conn.execute("SELECT credits FROM users WHERE id=?", (user_id,)).fetchone()
-                if row is None or row[0] + delta < 0:
-                    return False
-                m.conn.execute("UPDATE users SET credits = credits + ? WHERE id=?", (delta, user_id))
-                m.conn.execute("INSERT INTO credit_log (user_id, delta, reason) VALUES (?,?,?)",
-                               (user_id, delta, reason))
-            return True
-
-        def get_user(user_id):
-            r = m.conn.execute("SELECT id, username, first_name, credits FROM users WHERE id=?",
-                               (user_id,)).fetchone()
-            return SimpleNamespace(id=r[0], username=r[1], first_name=r[2], credits=r[3]) if r else None
-
-        def set_blocked(user_id, blocked):
-            with m.conn:
-                m.conn.execute("UPDATE users SET blocked=? WHERE id=?", (int(blocked), user_id))
-
-        m.add_credits, m.get_user, m.set_blocked = add_credits, get_user, set_blocked
-        m.STUB = True
-        _install("bot.db", m)
 
 
 _ensure_stubs()
 from bot import archive, db  # noqa: E402
 
 
+def restore_db_proxy() -> None:
+    """Alcuni test di altri moduli assegnano una sqlite3.Connection a bot.db.conn:
+    qui si rimette il proxy, così db.init()/db.close() funzionano."""
+    if not isinstance(db.conn, db._Conn):
+        db.conn = db._Conn()
+
+
 def new_db(tmp: Path) -> None:
-    """DB pulito (reale se T1 c'è già, altrimenti schema minimo)."""
-    if getattr(db, "STUB", False):
-        db.conn = sqlite3.connect(":memory:")
-        db.conn.executescript(SCHEMA)
-    else:
-        db.init(tmp / "bot.db")
+    """DB reale pulito in tmp (chiudere con db.close())."""
+    restore_db_proxy()
+    db.init(tmp / "bot.db")
 
 
 def add_user(user_id: int, username: str | None = None, credits: int = 0) -> None:
@@ -181,7 +137,7 @@ def make_settings(tmp: Path, **kw) -> SimpleNamespace:
 
 def set_tree(*nodes: FakeNode):
     """Albero vero (`archive.Tree`) + righe in `nodes` (con il DB reale c'è la chiave esterna)."""
-    if getattr(archive, "STUB", False) or getattr(db, "STUB", False):
+    if getattr(archive, "STUB", False):
         archive.tree = FakeTree(*nodes)
         return archive.tree
     rows = [(n.id, n.path, n.parent_id, int(n.is_dir), n.price, 0, n.sha256,

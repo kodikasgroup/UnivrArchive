@@ -59,6 +59,10 @@ class FakeBot:
         self.copied.append((chat_id, from_chat_id, message_id, kw))
         return SimpleNamespace(message_id=5000)
 
+    async def edit_message_reply_markup(self, chat_id, message_id, reply_markup):
+        self.edited = (chat_id, message_id, reply_markup)
+        return message(chat_id, message_id, "COPYFID")
+
     def __getattr__(self, name):
         if name.startswith("forward"):
             self.forwarded = True
@@ -169,6 +173,48 @@ class StorageTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(nodes.count_to_upload(), 1)  # g non si può caricare, f sì (dopo il retry)
         self.assertIsNotNone(nodes.get_blob(self.f.sha256).storage_message_id)
 
+
+    async def test_background_picks_up_blobs_added_while_running(self):
+        calls = []
+
+        async def progress(done, total):
+            calls.append((done, total))
+
+        self.bot.upload_delay = 0.02
+        task = storage.resume_background_upload(self.bot, self.settings)
+        await asyncio.sleep(0)
+        (self.tmp / "A" / "h.pdf").write_text("ciao3")  # aggiunto da un /reindex durante il giro
+        self.conn.execute("INSERT INTO blobs (sha256) VALUES (?)", ("u" * 64,))
+        self.conn.execute("INSERT INTO nodes (id, path, is_dir, sha256) VALUES (3, 'A/h.pdf', 0, ?)", ("u" * 64,))
+        self.conn.commit()
+        self.assertIs(storage.resume_background_upload(self.bot, self.settings, progress), task)
+        await task
+        self.assertEqual(nodes.count_to_upload(), 0)
+        self.assertEqual(calls[-1], (3, 3))  # il nuovo callback non viene perso
+
+    async def test_concurrent_invalid_file_id_reuploads_once(self):
+        nodes.set_file_id(self.f.sha256, "OLD", "U")
+        self.bot.bad_ids.add("OLD")
+        self.bot.upload_delay = 0.02
+        await asyncio.gather(*(storage.send_file(self.bot, self.settings, 42, self.f, caption="c") for _ in range(2)))
+        self.assertEqual(len([s for s in self.bot.sent if s[0] == CHANNEL]), 1)
+
+    async def test_missing_file_id_recovered_by_copy_without_disk(self):
+        from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+        (self.tmp / "A" / "f.pdf").unlink()  # il disco non serve
+        self.conn.execute("UPDATE blobs SET storage_message_id = 77 WHERE sha256 = ?", (self.f.sha256,))
+        self.conn.commit()
+        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="x", callback_data="x")]])
+        msg = await storage.send_file(self.bot, self.settings, 42, self.f, caption="nostra", reply_markup=kb)
+        chat, src, mid, kw = self.bot.copied[0]
+        self.assertEqual((chat, src, mid, kw["caption"]), (42, CHANNEL, 77, "nostra"))
+        self.assertEqual(self.bot.sent, [])  # niente upload
+        self.assertFalse(self.bot.forwarded)
+        self.assertEqual(self.bot.edited, (42, 5000, kb))
+        self.assertEqual(msg.message_id, 5000)
+        blob = nodes.get_blob(self.f.sha256)
+        self.assertEqual((blob.file_id, blob.storage_message_id), ("COPYFID", 77))
 
 if __name__ == "__main__":
     unittest.main()

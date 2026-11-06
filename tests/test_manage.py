@@ -27,7 +27,7 @@ class Base(unittest.TestCase):
         (a / "EXCLUSIVE" / "Anno3" / "libero.pdf").write_text("z")
 
     def tearDown(self):
-        db.conn.close()
+        db.close()
         self._tmp.cleanup()
 
     def exists(self, rel: str) -> bool:
@@ -190,6 +190,36 @@ class HandlerTests(Base):
         self.assertTrue(self.exists("INFORMATICA/Nuovo Corso"))
         self.assertEqual(inbox.get_submission(sid).dest_path, "INFORMATICA/Nuovo Corso")
         self.assertTrue(st.cleared)
+
+    def test_mkdir_input_skips_replies_to_ticket_cards(self):
+        """Con Flow.mkdir attivo nel gruppo staff, la reply a una scheda ticket va a tickets."""
+        from aiogram import Dispatcher
+        from aiogram.fsm.storage.base import StorageKey
+        from aiogram.types import Update
+        from bot.handlers import tickets
+        S.add_user(5, "mario")
+        tid = inbox.create_ticket(5, "feedback", None, "ciao", 700)
+        dp = Dispatcher()
+        dp["settings"] = self.s
+        dp.include_router(manage.router)
+        dp.include_router(tickets.router)
+
+        async def go(reply_to_mid):
+            key = StorageKey(bot_id=self.bot.id, chat_id=-100, user_id=1)
+            await dp.storage.set_state(key, manage.Flow.mkdir.state)
+            await dp.storage.set_data(key, {"parent": "INFORMATICA", "panel": None, "ctx": None, "node_id": 1})
+            reply = S.make_message(self.bot, reply_to_mid, -100, "supergroup", from_id=0)
+            msg = S.make_message(self.bot, 950, -100, "supergroup", from_id=1, text="Risposta",
+                                 reply_to=reply.model_dump(by_alias=True, exclude_none=True, mode="python"))
+            await dp.feed_update(self.bot, Update(update_id=1, message=msg))
+            return await dp.storage.get_state(key)
+
+        self.assertEqual(asyncio.run(go(700)), manage.Flow.mkdir.state)   # stato intatto
+        self.assertFalse(self.exists("INFORMATICA/Risposta"))
+        self.assertTrue(any(type(c).__name__ == "CopyMessage" for c in self.bot.calls))  # inoltrata
+        self.assertEqual(inbox.get_ticket(tid).status, "open")
+        self.assertIsNone(asyncio.run(go(888)))                            # reply ad altro: è il nome
+        self.assertTrue(self.exists("INFORMATICA/Risposta"))
 
 
 if __name__ == "__main__":

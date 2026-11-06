@@ -12,6 +12,7 @@ from bot import archive, db
 from bot.db import stats
 from bot.handlers import admin
 from bot.texts import admin as T
+from tests.support_inbox import restore_db_proxy
 
 
 def make_preview(**kw) -> archive.Preview:
@@ -69,6 +70,7 @@ def fake_msg():
 class ReindexTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.tmp = tempfile.TemporaryDirectory()
+        restore_db_proxy()
         db.init(Path(self.tmp.name) / "bot.db")
         self.bot = MagicMock()
         self.status = fake_msg()
@@ -108,6 +110,13 @@ class ReindexTest(unittest.IsolatedAsyncioTestCase):
             await admin.cb_reindex_apply(call, self.bot, self.settings)
         self.assertIn("+1 file", call.message.edit_text.call_args.args[0])
 
+    async def test_apply_busy_old_preview(self):
+        db.upsert_user(7, "capo", "Capo")
+        call = MagicMock(); call.answer = AsyncMock(); call.message = fake_msg(); call.from_user.id = 1
+        with patch.object(archive, "apply_reindex", AsyncMock(side_effect=archive.ReindexBusy(7))):
+            await admin.cb_reindex_apply(call, self.bot, self.settings)
+        self.assertIn("già in corso da @capo", call.message.edit_text.call_args.args[0])
+
     async def test_apply_ok_starts_upload_with_progress(self):
         call = MagicMock(); call.answer = AsyncMock(); call.message = fake_msg(); call.from_user.id = 1
         res = archive.ApplyResult(added=12, modified=1, moved=0, removed=3, to_upload=25)
@@ -129,6 +138,7 @@ class ReindexTest(unittest.IsolatedAsyncioTestCase):
 class BroadcastTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.tmp = tempfile.TemporaryDirectory()
+        restore_db_proxy()
         db.init(Path(self.tmp.name) / "bot.db")
         for i in range(1, 6):
             db.upsert_user(i, f"u{i}", f"U{i}")
@@ -140,6 +150,24 @@ class BroadcastTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_recipients_exclude_blocked(self):
         self.assertEqual(stats.broadcast_recipients(), [1, 2, 3, 4])
+
+    async def test_double_confirm_starts_one_broadcast(self):
+        import asyncio
+        admin._broadcast_task = None
+        admin._broadcast_pending.update({1: (1, 10), 2: (1, 11)})
+        bot = MagicMock()
+        calls = []
+        for uid in (1, 2):
+            c = MagicMock(); c.from_user.id = uid; c.message = fake_msg()
+            c.answer = AsyncMock(side_effect=lambda *a, **k: asyncio.sleep(0))
+            calls.append(c)
+        started = []
+        with patch.object(admin, "run_broadcast", AsyncMock(side_effect=lambda *a, **k: started.append(a))):
+            await asyncio.gather(*(admin.cb_broadcast_ok(c, bot) for c in calls))
+            await admin._broadcast_task
+        self.assertEqual(len(started), 1)
+        calls[1].answer.assert_awaited_with(T.BROADCAST_BUSY, show_alert=True)
+        admin._broadcast_pending.clear()
 
     async def test_retry_forbidden_and_blocked_users(self):
         calls = []
@@ -192,6 +220,7 @@ class BroadcastTest(unittest.IsolatedAsyncioTestCase):
 class CommandsTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.tmp = tempfile.TemporaryDirectory()
+        restore_db_proxy()
         db.init(Path(self.tmp.name) / "bot.db")
         db.upsert_user(10, "mario", "Mario")
         db.upsert_user(11, "Dup", "A")
@@ -238,6 +267,13 @@ class CommandsTest(unittest.IsolatedAsyncioTestCase):
         for a in (None, "10", "10 abc", "10 0"):
             await admin.cmd_credits_add(self.msg, self.cmd(a), self.bot)
             self.assertEqual(self.reply(), T.CREDITS_USAGE)
+
+    async def test_credits_huge_delta_refused(self):
+        await admin.cmd_credits_add(self.msg, self.cmd("10 99999999999999999999"), self.bot)
+        self.assertEqual(self.reply(), T.credits_too_big(admin.CREDITS_MAX_DELTA))
+        await admin.cmd_credits_add(self.msg, self.cmd("10 -1000001"), self.bot)
+        self.assertEqual(self.reply(), T.credits_too_big(admin.CREDITS_MAX_DELTA))
+        self.assertEqual(db.get_user(10).credits, 5)
 
     async def test_vip(self):
         await admin.cmd_vip(self.msg, self.cmd("10 0"))

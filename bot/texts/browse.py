@@ -174,6 +174,7 @@ REPORT_REASONS = {
 }
 REPORT_DONE = "✅ Segnalazione inviata, grazie!"
 REPORT_ALREADY = "Hai già segnalato questo file."
+REPORT_ERROR = "😞 Non sono riuscito a inviare la segnalazione. Riprova tra poco."
 
 # --- scarica tutto ------------------------------------------------------------
 

@@ -36,6 +36,13 @@ def texts(markup):
     return [b.text for b in buttons(markup)]
 
 
+def type_fields(button):
+    """Campi-tipo valorizzati: Telegram ne vuole esattamente uno per bottone."""
+    extra = {"text", "icon_custom_emoji_id", "style"}
+    return [f for f in type(button).model_fields
+            if f not in extra and getattr(button, f) is not None]
+
+
 class KeyboardTests(unittest.TestCase):
     def setUp(self):
         keyboards.set_bot_username("testbot")
@@ -89,7 +96,7 @@ class KeyboardTests(unittest.TestCase):
         self.assertIn("2/3", texts(kb1))
         self.assertIn("3/3", texts(kb2))
         ind = [b for b in buttons(kb1) if b.text == "2/3"][0]
-        self.assertEqual(ind.callback_data, "noop")
+        self.assertIsNone(ind.callback_data)
         self.assertIsNotNone(ind.disabled)
         data = [b.callback_data for b in buttons(kb1)]
         self.assertIn("n:1", data)       # ◀️ torna alla pagina 0 (nessun suffisso)
@@ -100,7 +107,8 @@ class KeyboardTests(unittest.TestCase):
         self.assertEqual(len(entries), 10)
         # ultima pagina: ▶️ disabilitato
         nxt = [b for b in buttons(kb2) if b.text == "▶️"][0]
-        self.assertEqual(nxt.callback_data, "noop")
+        self.assertIsNone(nxt.callback_data)
+        self.assertIsNotNone(nxt.disabled)
         # nessuna paginazione se basta una pagina
         _, small = keyboards.folder(None)
         self.assertFalse([t for t in texts(small) if "/" in t and t[0].isdigit()])
@@ -214,6 +222,17 @@ class KeyboardTests(unittest.TestCase):
 
     def test_cache_returns_same_result(self):
         self.assertIs(keyboards.folder(100004)[1], keyboards.folder(100004)[1])
+
+    def test_every_button_has_exactly_one_type_field(self):
+        specs = [(1, None, "CORSO", True)] + [(10 + i, 1, f"F_{i:02d}.pdf", False)
+                                              for i in range(25)]
+        archive.tree = sup.make_tree(specs, old=True)
+        kbs = [keyboards.folder(1, p, mode=m, is_admin=True)[1]
+               for p in range(3) for m in ("browse", "pick", "staff", "group")]
+        kbs.append(keyboards.folder(None)[1])
+        for kb in kbs:
+            for b in buttons(kb):
+                self.assertEqual(len(type_fields(b)), 1, b)
 
     def test_node_list(self):
         nodes = [archive.tree.get(100008), archive.tree.get(100004)]

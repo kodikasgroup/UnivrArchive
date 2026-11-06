@@ -105,11 +105,16 @@ def display_path(rel: str) -> str:
 
 
 def _sha256_copy(src: Path, dst: Path) -> str:
+    """Copia calcolando lo sha256; se fallisce non lascia una copia parziale."""
     h = hashlib.sha256()
-    with open(src, "rb") as fin, open(dst, "wb") as fout:
-        while chunk := fin.read(1 << 20):
-            h.update(chunk)
-            fout.write(chunk)
+    try:
+        with open(src, "rb") as fin, open(dst, "wb") as fout:
+            while chunk := fin.read(1 << 20):
+                h.update(chunk)
+                fout.write(chunk)
+    except BaseException:
+        dst.unlink(missing_ok=True)
+        raise
     return h.hexdigest()
 
 
@@ -245,23 +250,60 @@ async def _react(bot: Bot, chat_id: int, message_id: int | None, emoji: str) -> 
         log.debug("reazione %s non impostata", emoji, exc_info=True)
 
 
+async def _post_card(bot: Bot, settings: "Settings", sub: inbox.Submission) -> None:
+    """Reazione 👀, documento + scheda nel gruppo staff (TelegramAPIError se fallisce)."""
+    await _react(bot, sub.user_id, sub.user_message_id, "👀")
+    sent = await bot.copy_message(
+        settings.staff_chat_id, sub.user_id, sub.user_message_id,
+        caption=render_card(sub), reply_markup=card_markup(sub))
+    inbox.set_staff_message(sub.id, sent.message_id)
+
+
 async def dispatch_to_staff(bot: Bot, settings: "Settings", sub_ids: list[int],
                             hint_node_id: int | None) -> None:
-    """Passi 6-7: suggerimento salvato, reazione 👀, documento + scheda nel gruppo staff."""
+    """Passi 6-7: suggerimento salvato, reazione 👀, documento + scheda nel gruppo staff.
+    Se la scheda non parte, l'invio resta orfano e lo riprende recover_orphans."""
     for sub_id in sub_ids:
         inbox.set_hint(sub_id, hint_node_id)
         sub = inbox.get_submission(sub_id)
         if sub is None or sub.status != "pending":
             continue
-        await _react(bot, sub.user_id, sub.user_message_id, "👀")
         try:
-            sent = await bot.copy_message(
-                settings.staff_chat_id, sub.user_id, sub.user_message_id,
-                caption=render_card(sub), reply_markup=card_markup(sub))
+            await _post_card(bot, settings, sub)
         except TelegramAPIError:
             log.exception("invio %s: scheda staff non pubblicata", sub_id)
+
+
+async def recover_orphans(bot: Bot, settings: "Settings") -> tuple[int, int]:
+    """Invii pending senza scheda staff (scelta cartella persa al riavvio o scheda
+    fallita): pubblicati con suggerimento "Non so" (o quello già scelto), oppure
+    scartati se il messaggio dell'utente o il file in inbox non ci sono più.
+    Ritorna (pubblicati, scartati). Lo chiamano jobs all'avvio e ogni notte."""
+    live = {i for sess in _picks.values() for i in sess.sub_ids}
+    live |= {i for ids in _admin_by_ctx.values() for i in ids}
+    sent = dropped = 0
+    for sub in inbox.orphaned_pending():
+        if sub.id in live:
             continue
-        inbox.set_staff_message(sub_id, sent.message_id)
+        if sub.user_message_id is None or not (sub.inbox_path and Path(sub.inbox_path).is_file()):
+            inbox.reject_orphan(sub.id)
+            dropped += 1
+            continue
+        try:
+            await _post_card(bot, settings, sub)
+        except TelegramBadRequest as e:
+            if "not found" not in str(e).lower():
+                log.warning("invio orfano %s: scheda non pubblicata (%s)", sub.id, e)
+                continue
+            inbox.reject_orphan(sub.id)      # messaggio dell'utente cancellato
+            dropped += 1
+        except TelegramAPIError as e:
+            log.warning("invio orfano %s: scheda non pubblicata (%s), si riprova", sub.id, e)
+        else:
+            sent += 1
+    if sent or dropped:
+        log.info("invii orfani: %d pubblicati, %d scartati", sent, dropped)
+    return sent, dropped
 
 
 # --- ricezione --------------------------------------------------------------
@@ -651,11 +693,13 @@ async def cb_reject(callback: CallbackQuery, bot: Bot, settings: "Settings") -> 
                        None)
 
 
-def context_for_message(msg: Message) -> int | None:
+def context_for_message(msg: Message, settings: "Settings") -> int | None:
     """Id dell'invio a cui appartiene un messaggio di navigazione (scheda staff o
     pannello dell'admin in privato); None se non è legato a nessun invio."""
     ctx = _admin_msgs.get((msg.chat.id, msg.message_id))
     if ctx is not None:
         return ctx
+    if msg.chat.id != settings.staff_chat_id:   # gli id dei messaggi sono per chat
+        return None
     sub = inbox.get_by_staff_message(msg.message_id)
     return sub.id if sub and sub.status == "pending" else None

@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from bot import db
+from tests.support_inbox import restore_db_proxy
 from bot.middlewares import UserMiddleware
 
 TABLES = {"users", "nodes", "blobs", "purchases", "credit_log", "submissions",
@@ -18,6 +19,7 @@ class DbTestCase(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.path = Path(self._tmp.name) / "bot.db"
+        restore_db_proxy()
         db.init(self.path)
         self.addCleanup(self._tmp.cleanup)
         self.addCleanup(db.close)

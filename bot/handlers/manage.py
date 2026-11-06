@@ -210,6 +210,13 @@ def _prices_markup(prefix: str, cancel: str, settings: "Settings") -> InlineKeyb
 
 # --- FSM ------------------------------------------------------------------------
 
+def _not_ticket_reply(message: Message, settings: "Settings") -> bool:
+    """Le reply alle schede ticket (gruppo staff) vanno a tickets, non al nome cartella."""
+    reply = message.reply_to_message
+    return (reply is None or message.chat.id != settings.staff_chat_id
+            or inbox.get_ticket_by_staff_message(reply.message_id) is None)
+
+
 class Flow(StatesGroup):
     mkdir = State()
     rename = State()
@@ -253,14 +260,14 @@ async def cb_menu(callback: CallbackQuery, state: FSMContext) -> None:
 # nuova cartella ---------------------------------------------------------------
 
 @router.callback_query(IsAdmin(), F.data.regexp(r"^adm:mkdir:\d+$"))
-async def cb_mkdir(callback: CallbackQuery, state: FSMContext) -> None:
+async def cb_mkdir(callback: CallbackQuery, state: FSMContext, settings: "Settings") -> None:
     node_id = int(callback.data.split(":")[2])
     node = _node(node_id)
     msg = callback.message
     if (node_id and (node is None or not node.is_dir)) or not isinstance(msg, Message):
         await callback.answer(T.M_NOT_FOUND, show_alert=True)
         return
-    ctx = submit.context_for_message(msg)
+    ctx = submit.context_for_message(msg, settings)
     await state.set_state(Flow.mkdir)
     await state.update_data(parent=node.path if node else "", panel=msg, ctx=ctx, node_id=node_id)
     await callback.answer()
@@ -268,7 +275,7 @@ async def cb_mkdir(callback: CallbackQuery, state: FSMContext) -> None:
     await msg.answer(T.M_ASK_MKDIR.format(where=where))
 
 
-@router.message(Flow.mkdir, IsAdmin(), F.text, ~F.text.startswith("/"))
+@router.message(Flow.mkdir, IsAdmin(), F.text, ~F.text.startswith("/"), _not_ticket_reply)
 async def msg_mkdir(message: Message, state: FSMContext, bot: Bot, settings: "Settings") -> None:
     data = await state.get_data()
     try:
@@ -302,7 +309,7 @@ async def cb_rename(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.message.answer(T.M_ASK_RENAME.format(name=T.escape(node.name)))
 
 
-@router.message(Flow.rename, IsAdmin(), F.text, ~F.text.startswith("/"))
+@router.message(Flow.rename, IsAdmin(), F.text, ~F.text.startswith("/"), _not_ticket_reply)
 async def msg_rename(message: Message, state: FSMContext, settings: "Settings") -> None:
     data = await state.get_data()
     node = _node(data["node_id"])

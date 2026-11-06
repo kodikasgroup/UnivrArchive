@@ -25,7 +25,7 @@ class Base(unittest.TestCase):
         self.user = User(id=5, is_bot=False, first_name="Mario", username="mario")
 
     def tearDown(self):
-        db.conn.close()
+        db.close()
         self._tmp.cleanup()
 
     def open(self, kind="feedback", text="ciao <b>", node_id=None) -> int:

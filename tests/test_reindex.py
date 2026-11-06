@@ -301,6 +301,39 @@ class ReindexTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sorted(pv.modified), ["A/a.pdf", "A/b.pdf"])
         await archive.apply_reindex(1)
 
+    async def test_future_mtime_is_not_in_copy(self):
+        self.put("A/futuro.pdf", "f", age=-3600)  # orologio del NAS avanti di un'ora
+        pv = await archive.start_reindex(self.settings, 1)
+        self.assertEqual((pv.in_copy, pv.added), ([], ["A/futuro.pdf"]))
+
+    async def test_unreadable_changed_file_not_removed(self):
+        p = self.put("A/f.pdf", "v")
+        await self.reindex()
+        p.write_text("nuovo contenuto")
+        os.utime(p, (OLD + 7, OLD + 7))
+        p.chmod(0)
+        self.addCleanup(p.chmod, 0o644)
+        pv = await archive.start_reindex(self.settings, 1)
+        self.assertEqual((pv.removed, pv.added, pv.modified), ([], [], []))
+
+    async def test_apply_claims_preview_and_respects_cancel(self):
+        self.put("A/f.pdf")
+        await archive.start_reindex(self.settings, 1)
+        res = await asyncio.gather(archive.apply_reindex(1), archive.apply_reindex(1), return_exceptions=True)
+        self.assertEqual(sorted(type(r).__name__ for r in res), ["ApplyResult", "PreviewExpired"])
+        # annullato mentre applica: non scrive e non libera il lock del reindex successivo
+        self.put("A/g.pdf", "g")
+        await archive.start_reindex(self.settings, 1)
+        task = asyncio.create_task(archive.apply_reindex(1))
+        await asyncio.sleep(0)  # apply sospeso nel to_thread
+        archive.cancel_reindex(1)
+        await archive.start_reindex(self.settings, 2)
+        with self.assertRaises(PreviewExpired):
+            await task
+        self.assertIsNone(self.row("A/g.pdf"))
+        self.assertTrue(archive.reindex_lock.locked())
+        self.assertEqual(archive._owner_id, 2)
+
     async def test_atomic_tree_swap(self):
         self.put("A/f.pdf")
         before = archive.tree

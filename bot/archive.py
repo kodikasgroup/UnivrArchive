@@ -310,7 +310,8 @@ def _scan(
             dirs.add(path)
             continue
         k = known.get(path)
-        if now - mtime < IN_COPY_SECONDS:  # ancora in copia: escluso (se già noto, resta com'è)
+        # ancora in copia: escluso (se già noto, resta com'è). mtime nel futuro = file normale
+        if 0 <= now - mtime < IN_COPY_SECONDS:
             in_copy.append(path)
             if k and k[2]:
                 files[path] = (k[0], k[1], k[2])
@@ -327,6 +328,8 @@ def _scan(
             sha = _sha256_file(root / path)
         except OSError as e:
             log.warning("impossibile leggere %s: %s", path, e)
+            if (k := known.get(path)) and k[2]:  # già noto: resta com'è, si riprova al prossimo reindex
+                files[path] = (k[0], k[1], k[2])
             continue
         cache[(path, size, mtime)] = sha
         files[path] = (size, mtime, sha)
@@ -550,10 +553,15 @@ class _State:
 _state: _State | None = None
 _owner_id: int | None = None
 _timer: asyncio.TimerHandle | None = None
+_run: object | None = None  # gettone del reindex in corso: chi ha un gettone vecchio non tocca nulla
 
 
-def _release() -> None:
-    global _state, _owner_id, _timer
+def _release(token: object | None = None) -> None:
+    """Libera stato e lock. Con `token`, solo se è ancora il reindex in corso."""
+    global _state, _owner_id, _timer, _run
+    if token is not None and token is not _run:
+        return
+    _run = None
     _state = None
     _owner_id = None
     if _timer is not None:
@@ -565,7 +573,7 @@ def _release() -> None:
 
 def _expire_if_stale() -> None:
     if _state is not None and _clock() >= _state.expires:
-        _release()
+        _release(_run)
 
 
 def _arm_timer() -> None:
@@ -579,7 +587,13 @@ def _known(old_rows: list[tuple]) -> dict[str, tuple[int, float, str | None]]:
     return {r[1]: (r[5] or 0, r[6] or 0.0, r[7]) for r in old_rows if not r[3]}
 
 
-async def _scan_and_plan(settings, admin_id, progress, cache) -> Preview:
+def _check_current(token: object) -> None:
+    """Dopo ogni await: se nel frattempo il reindex è stato annullato o è scaduto, non si scrive nulla."""
+    if _run is not token:
+        raise PreviewExpired()
+
+
+async def _scan_and_plan(settings, admin_id, progress, cache, token) -> Preview:
     """Scansiona, calcola il piano, registra lo stato. Il chiamante tiene il lock."""
     global _state
     loop = asyncio.get_running_loop()
@@ -594,6 +608,7 @@ async def _scan_and_plan(settings, admin_id, progress, cache) -> Preview:
         return scan, _build_plan(old_rows, removed_rows, scan, settings.price_max, first_import, now)
 
     scan, plan = await asyncio.to_thread(work)
+    _check_current(token)
     with_purchases = db_nodes.ids_with_purchases(plan.removed_file_ids)
     fields = dict(plan.preview_fields)
     fields["removed_with_purchases"] = sorted(plan.removed_file_ids[i] for i in with_purchases)
@@ -602,7 +617,7 @@ async def _scan_and_plan(settings, admin_id, progress, cache) -> Preview:
     if preview.is_empty:
         if touches:  # solo mtime cambiati: nessuna modifica visibile
             db_nodes.apply_touches(touches)
-        _release()
+        _release(token)
         return preview
     _state = _State(admin_id, settings, preview, plan, scan.signature, cache, _clock() + PREVIEW_TTL)
     _arm_timer()
@@ -613,31 +628,37 @@ async def start_reindex(
     settings: Settings, admin_id: int, progress: Callable[[str], Awaitable[None]] | None = None
 ) -> Preview:
     """Scansiona il disco e prepara l'anteprima (10 minuti). Con anteprima vuota il lock si libera da solo."""
-    global _owner_id
+    global _owner_id, _run
     _expire_if_stale()
     if reindex_lock.locked():
         raise ReindexBusy(_owner_id if _owner_id is not None else 0)
     await reindex_lock.acquire()
     _owner_id = admin_id
+    _run = token = object()
     try:
-        return await _scan_and_plan(settings, admin_id, progress, {})
+        return await _scan_and_plan(settings, admin_id, progress, {}, token)
     except BaseException:
-        _release()
+        _release(token)
         raise
 
 
 async def apply_reindex(admin_id: int) -> ApplyResult:
+    global _state
     _expire_if_stale()
     st = _state
     if st is None:
         raise PreviewExpired()
     if st.admin_id != admin_id:
         raise ReindexBusy(st.admin_id)
+    # si prende l'anteprima prima del primo await: un secondo click trova PreviewExpired
+    _state = None
+    token = _run
     try:
         # il disco è cambiato tra anteprima e click? (stat veloce, niente hash)
         current = await asyncio.to_thread(lambda: frozenset(_walk(Path(st.settings.archive_dir))))
+        _check_current(token)
         if current != st.signature:
-            preview = await _scan_and_plan(st.settings, admin_id, None, st.cache)
+            preview = await _scan_and_plan(st.settings, admin_id, None, st.cache, token)
             raise DiskChanged(preview)
         plan = st.plan
         db_nodes.apply_changes(plan.removed_ids, plan.writes, _fmt(datetime.now(_UTC)))
@@ -650,12 +671,12 @@ async def apply_reindex(admin_id: int) -> ApplyResult:
     except DiskChanged:
         raise
     except BaseException:
-        _release()
+        _release(token)
         raise
-    _release()
+    _release(token)
     return result
 
 
 def cancel_reindex(admin_id: int) -> None:
     if _owner_id == admin_id:
-        _release()
+        _release(_run)

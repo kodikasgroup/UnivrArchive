@@ -123,6 +123,9 @@ async def cb_reindex_apply(call: CallbackQuery, bot: Bot, settings: Settings) ->
     except archive.PreviewExpired:
         await _edit(msg, T.REINDEX_EXPIRED)
         return
+    except archive.ReindexBusy as e:   # anteprima vecchia, il lock ora è di un altro admin
+        await _edit(msg, T.reindex_busy(_owner_name(e.owner_id)))
+        return
     except archive.DiskChanged as e:
         await _show_preview(msg, e.preview, admin_id)
         return
@@ -192,6 +195,9 @@ def _resolve(ref: str) -> int | str | None:
     return uid
 
 
+CREDITS_MAX_DELTA = 1_000_000
+
+
 @router.message(Command("crediti_add"))
 async def cmd_credits_add(message: Message, command: CommandObject, bot: Bot) -> None:
     parts = (command.args or "").split(maxsplit=2)
@@ -201,6 +207,9 @@ async def cmd_credits_add(message: Message, command: CommandObject, bot: Bot) ->
         delta = 0
     if len(parts) < 2 or delta == 0:
         await message.answer(T.CREDITS_USAGE)
+        return
+    if abs(delta) > CREDITS_MAX_DELTA:
+        await message.answer(T.credits_too_big(CREDITS_MAX_DELTA))
         return
     uid = _resolve(parts[0])
     if isinstance(uid, str):
@@ -328,15 +337,18 @@ async def cb_broadcast_ok(call: CallbackQuery, bot: Bot) -> None:
     if src is None:
         await call.answer(T.BROADCAST_EXPIRED, show_alert=True)
         return
-    await call.answer()
     msg = call.message
-    await _edit(msg, T.BROADCAST_STARTED)
 
     async def notify(text: str) -> None:
         await _edit(msg, text)
 
-    _broadcast_task = asyncio.create_task(
-        run_broadcast(bot, stats.broadcast_recipients(), src[0], src[1], notify))
+    async def go() -> BroadcastResult:
+        await _edit(msg, T.BROADCAST_STARTED)
+        return await run_broadcast(bot, stats.broadcast_recipients(), src[0], src[1], notify)
+
+    # il task si crea prima di qualunque await: un secondo click lo vede già in corso
+    _broadcast_task = asyncio.create_task(go())
+    await call.answer()
 
 
 @router.callback_query(F.data == "bc:no")

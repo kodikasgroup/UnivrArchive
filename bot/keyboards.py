@@ -165,8 +165,7 @@ def _build(tree: archive.Tree, node_id: int | None, page: int, mode: Mode,
     if pages > 1:
         rows.append([
             _page_button("◀️", enter_data(mode, ctx, nid, page - 1), page > 0),
-            InlineKeyboardButton(text=f"{page + 1}/{pages}", callback_data="noop",
-                                 disabled=DisabledButton()),
+            InlineKeyboardButton(text=f"{page + 1}/{pages}", disabled=DisabledButton()),
             _page_button("▶️", enter_data(mode, ctx, nid, page + 1), page < pages - 1),
         ])
 
@@ -207,7 +206,8 @@ def _build(tree: archive.Tree, node_id: int | None, page: int, mode: Mode,
 def _page_button(text: str, data: str, enabled: bool) -> InlineKeyboardButton:
     if enabled:
         return _btn(text, data)
-    return InlineKeyboardButton(text=text, callback_data="noop", disabled=DisabledButton())
+    # un bottone disabilitato ha un solo campo-tipo: `disabled` (niente callback_data)
+    return InlineKeyboardButton(text=text, disabled=DisabledButton())
 
 
 # --- liste di nodi (ricerca, preferiti, recenti, novità) ------------------------

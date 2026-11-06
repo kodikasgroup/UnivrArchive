@@ -50,6 +50,14 @@ def _sub(row: tuple | None) -> Submission | None:
     return Submission(*row) if row else None
 
 
+# Un invio 'pending' senza scheda staff più vecchio di così è orfano: la scelta
+# della cartella (in RAM, 10 minuti) è andata persa o la scheda non è partita.
+# Non conta per dedup e limite giornaliero; lo recupera submit.recover_orphans.
+ORPHAN_AFTER_S = 900
+_LIVE = ("NOT (status = 'pending' AND staff_message_id IS NULL "
+         f"AND at < datetime('now', '-{ORPHAN_AFTER_S} seconds'))")
+
+
 # --- submissions ---------------------------------------------------------
 
 def create_submission(user_id: int, file_id: str, file_unique_id: str, file_name: str,
@@ -85,7 +93,7 @@ def seen_unique_id(file_unique_id: str) -> bool:
     """Questo file (per Telegram) è già stato inviato e non scartato?"""
     row = db.conn.execute(
         "SELECT 1 FROM submissions WHERE file_unique_id = ? "
-        "AND status IN ('pending', 'approved', 'duplicate') LIMIT 1",
+        f"AND status IN ('pending', 'approved', 'duplicate') AND {_LIVE} LIMIT 1",
         (file_unique_id,),
     ).fetchone()
     return row is not None
@@ -94,7 +102,7 @@ def seen_unique_id(file_unique_id: str) -> bool:
 def count_recent_pending(user_id: int, hours: int = 24) -> int:
     row = db.conn.execute(
         "SELECT COUNT(*) FROM submissions WHERE user_id = ? AND status = 'pending' "
-        "AND at >= datetime('now', ?)",
+        f"AND at >= datetime('now', ?) AND {_LIVE}",
         (user_id, f"-{int(hours)} hours"),
     ).fetchone()
     return int(row[0])
@@ -109,9 +117,10 @@ def set_file_info(sub_id: int, sha256: str, inbox_path: str) -> None:
 
 
 def find_pending_by_sha256(sha256: str, exclude_id: int) -> int | None:
+    """Stesso contenuto già in attesa, o approvato ma non ancora nell'albero (pre-/reindex)."""
     row = db.conn.execute(
-        "SELECT id FROM submissions WHERE sha256 = ? AND status = 'pending' AND id != ? "
-        "ORDER BY id LIMIT 1",
+        "SELECT id FROM submissions WHERE sha256 = ? AND status IN ('pending', 'approved') "
+        f"AND id != ? AND {_LIVE} ORDER BY id LIMIT 1",
         (sha256, exclude_id),
     ).fetchone()
     return int(row[0]) if row else None
@@ -175,6 +184,24 @@ def finalize_approval(sub_id: int, dest_path: str) -> None:
         )
 
 
+def orphaned_pending() -> list[Submission]:
+    rows = db.conn.execute(
+        f"SELECT {_SUB_COLS} FROM submissions WHERE status = 'pending' "
+        f"AND staff_message_id IS NULL AND NOT {_LIVE} ORDER BY id"
+    ).fetchall()
+    return [Submission(*r) for r in rows]
+
+
+def reject_orphan(sub_id: int) -> None:
+    """Orfano non recuperabile: scartato (il file in inbox andrà via con la pulizia)."""
+    with db.conn:
+        db.conn.execute(
+            "UPDATE submissions SET status = 'rejected', reviewed_at = at "
+            "WHERE id = ? AND status = 'pending' AND staff_message_id IS NULL",
+            (sub_id,),
+        )
+
+
 def reject(sub_id: int, admin_id: int) -> bool:
     with db.conn:
         cur = db.conn.execute(
@@ -205,16 +232,23 @@ def list_pending(limit: int = 50) -> list[tuple[int, int, str]]:
 
 
 def expired_inbox_files(days: int = 30) -> list[str]:
-    """Percorsi inbox di rejected/duplicate più vecchi di `days`; azzera inbox_path."""
+    """Percorsi inbox di rejected/duplicate più vecchi di `days`. Non li azzera:
+    lo fa clear_inbox_paths dopo la cancellazione riuscita."""
+    rows = db.conn.execute(
+        "SELECT inbox_path FROM submissions WHERE status IN ('rejected', 'duplicate') "
+        "AND inbox_path IS NOT NULL AND COALESCE(reviewed_at, at) < datetime('now', ?)",
+        (f"-{int(days)} days",),
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
+def clear_inbox_paths(paths: list[str]) -> None:
     with db.conn:
-        rows = db.conn.execute(
-            "SELECT id, inbox_path FROM submissions WHERE status IN ('rejected', 'duplicate') "
-            "AND inbox_path IS NOT NULL AND COALESCE(reviewed_at, at) < datetime('now', ?)",
-            (f"-{int(days)} days",),
-        ).fetchall()
-        for sub_id, _ in rows:
-            db.conn.execute("UPDATE submissions SET inbox_path = NULL WHERE id = ?", (sub_id,))
-    return [r[1] for r in rows]
+        db.conn.executemany(
+            "UPDATE submissions SET inbox_path = NULL WHERE inbox_path = ? "
+            "AND status IN ('rejected', 'duplicate')",
+            [(p,) for p in paths],
+        )
 
 
 def stale_pending(days: int = 30) -> list[int]:

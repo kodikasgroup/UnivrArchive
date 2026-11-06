@@ -15,6 +15,10 @@ CREDITS_USAGE = "Uso: <code>/crediti_add &lt;id|@username&gt; &lt;n&gt; [motivo]
 VIP_USAGE = "Uso: <code>/vip &lt;id|@username&gt; &lt;giorni|0|off&gt;</code>"
 BROADCAST_USAGE = "Rispondi con /broadcast al messaggio da inviare."
 
+
+def credits_too_big(limit: int) -> str:
+    return f"Numero troppo grande: al massimo {limit:,} crediti per volta.".replace(",", ".")
+
 # ── crediti / VIP ───────────────────────────────────────────────────────────
 
 

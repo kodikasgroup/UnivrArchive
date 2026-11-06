@@ -60,7 +60,7 @@ class Base(unittest.TestCase):
             FakeNode(3, "EXCLUSIVE"), FakeNode(4, "EXCLUSIVE/Anno3", parent_id=3))
 
     def tearDown(self):
-        db.conn.close()
+        db.close()
         self._tmp.cleanup()
 
     def new_sub(self, name="esame.pdf", content=b"abc", hint=2, uid=5, uniq=None) -> int:
@@ -170,7 +170,9 @@ class InboxDbTests(Base):
         self.assertEqual(inbox.stale_pending(30), [b])
         paths = inbox.expired_inbox_files(30)
         self.assertEqual(len(paths), 1)
-        self.assertEqual(inbox.expired_inbox_files(30), [])      # inbox_path azzerato
+        self.assertEqual(inbox.expired_inbox_files(30), paths)   # azzerato solo dopo la cancellazione
+        inbox.clear_inbox_paths(paths)
+        self.assertEqual(inbox.expired_inbox_files(30), [])
         self.assertIsNotNone(inbox.get_submission(a))             # la riga resta
 
     def test_rate_and_unique(self):
@@ -178,6 +180,103 @@ class InboxDbTests(Base):
         self.assertTrue(inbox.seen_unique_id("same"))
         self.assertFalse(inbox.seen_unique_id("other"))
         self.assertEqual(inbox.count_recent_pending(5), 1)
+
+
+class OrphanTests(Base):
+    """Invii pending senza scheda staff (sessione di scelta persa)."""
+
+    def setUp(self):
+        super().setUp()
+        submit._picks.clear()
+        submit._admin_by_ctx.clear()
+
+    def orphan(self, uniq="O", content=b"orf", age="-20 minutes", mid=77):
+        sid = inbox.create_submission(5, "FID", uniq, "o.pdf", 3, mid)
+        path = self.settings.inbox_dir / f"{sid}.pdf"
+        path.write_bytes(content)
+        inbox.set_file_info(sid, hashlib.sha256(content).hexdigest(), str(path))
+        with db.conn:
+            db.conn.execute("UPDATE submissions SET at = datetime('now', ?) WHERE id=?", (age, sid))
+        return sid
+
+    def test_orphans_ignored_by_dedup_and_rate(self):
+        self.orphan()
+        sha = hashlib.sha256(b"orf").hexdigest()
+        self.assertFalse(inbox.seen_unique_id("O"))
+        self.assertIsNone(inbox.find_pending_by_sha256(sha, 0))
+        self.assertEqual(inbox.count_recent_pending(5), 0)
+        fresh = self.orphan(uniq="N", content=b"new", age="-1 minutes")   # scelta ancora in corso
+        self.assertTrue(inbox.seen_unique_id("N"))
+        self.assertEqual(inbox.count_recent_pending(5), 1)
+        self.assertNotIn(fresh, [x.id for x in inbox.orphaned_pending()])
+
+    def test_recover_orphans_dispatches_or_rejects(self):
+        bot = FakeBot()
+        ok = self.orphan()
+        gone = self.orphan(uniq="G", content=b"gone")
+        Path(inbox.get_submission(gone).inbox_path).unlink()
+        sent, dropped = asyncio.run(submit.recover_orphans(bot, self.settings))
+        self.assertEqual((sent, dropped), (1, 1))
+        sub = inbox.get_submission(ok)
+        self.assertIsNotNone(sub.staff_message_id)
+        self.assertIsNone(sub.hint_node_id)                      # "Non so"
+        self.assertEqual(bot.of("CopyMessage")[0].chat_id, -100)
+        self.assertEqual(inbox.get_submission(gone).status, "rejected")
+        self.assertEqual(asyncio.run(submit.recover_orphans(bot, self.settings)), (0, 0))
+
+    def test_recover_orphan_user_message_deleted(self):
+        from aiogram.exceptions import TelegramBadRequest
+
+        class GoneBot(FakeBot):
+            async def __call__(self, method, request_timeout=None):
+                if type(method).__name__ == "CopyMessage":
+                    raise TelegramBadRequest(method, "Bad Request: message to copy not found")
+                return await super().__call__(method, request_timeout)
+
+        sid = self.orphan()
+        self.assertEqual(asyncio.run(submit.recover_orphans(GoneBot(), self.settings)), (0, 1))
+        self.assertEqual(inbox.get_submission(sid).status, "rejected")
+
+    def test_approved_not_reindexed_is_duplicate(self):
+        sid = self.new_sub(content=b"twice")
+        self.assertEqual(submit.approve_submission(self.settings, sid, 1, 10).status, "ok")
+        sha = hashlib.sha256(b"twice").hexdigest()
+        self.assertEqual(inbox.find_pending_by_sha256(sha, 0), sid)
+
+    def test_context_for_message_only_in_staff_chat(self):
+        sid = self.new_sub()
+        staff = S.make_message(None, 500 + sid, -100, "supergroup")
+        private = S.make_message(None, 500 + sid, 1, "private")
+        self.assertEqual(submit.context_for_message(staff, self.settings), sid)
+        self.assertIsNone(submit.context_for_message(private, self.settings))
+
+    def test_failed_copy_leaves_no_partial_file(self):
+        src = self.settings.bot_api_dir / "src.pdf"
+        src.write_bytes(b"x" * 10)
+        dst = self.settings.inbox_dir / "9.pdf"
+        real_open = open
+
+        class Boom:
+            def __init__(self, f):
+                self.f = f
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                self.f.close()
+
+            def write(self, b):
+                self.f.write(b[:3])
+                raise OSError("disco pieno")
+
+        def fake_open(path, mode="r", *a, **k):
+            f = real_open(path, mode, *a, **k)
+            return Boom(f) if "w" in mode else f
+        from unittest import mock
+        with mock.patch("builtins.open", fake_open), self.assertRaises(OSError):
+            submit._sha256_copy(src, dst)
+        self.assertFalse(dst.exists())
 
 
 def _doc(name, uid, fid="F1", size=100):

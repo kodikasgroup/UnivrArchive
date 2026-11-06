@@ -1,4 +1,8 @@
-"""Task notturno (backup, pulizie, albero in RAM). Un solo task asyncio, alle 03:00 UTC."""
+"""Task notturno (backup, pulizie, albero in RAM). Un solo task asyncio, alle 03:00 UTC.
+
+La cache del server Bot API (bot-api/) non si pulisce da qui: i file sono del suo
+utente (uid 101) e il bot la monta in sola lettura; lo fa il servizio
+`bot-api-cleaner` di compose.yaml."""
 
 from __future__ import annotations
 
@@ -16,7 +20,7 @@ from aiogram.exceptions import TelegramAPIError
 from bot import archive, db
 from bot.config import Settings
 from bot.db import inbox, stats
-from bot.handlers import admin
+from bot.handlers import admin, submit
 from bot.texts import admin as T
 
 log = logging.getLogger(__name__)
@@ -26,7 +30,6 @@ FMT = "%Y-%m-%d %H:%M:%S"
 BACKUPS_KEEP = 14
 TRASH_DAYS = 30
 INBOX_DAYS = 30
-BOT_API_DAYS = 1
 DOWNLOADS_DAYS = 365  # 12 mesi
 
 Clock = Callable[[], datetime]
@@ -100,35 +103,25 @@ def clean_trash(trash_dir: Path, now: datetime, days: int = TRASH_DAYS) -> int:
     return n
 
 
-def delete_inbox_files(paths: list[str], settings: Settings) -> int:
-    """Cancella solo file che stanno davvero dentro inbox_dir."""
+def delete_inbox_files(paths: list[str], settings: Settings) -> list[str]:
+    """Cancella solo file che stanno davvero dentro inbox_dir. Ritorna i percorsi
+    sistemati (cancellati, già assenti o fuori da inbox): quelli la cui cancellazione
+    fallisce restano fuori e si riprovano la notte dopo."""
     root = Path(settings.inbox_dir).resolve()
-    n = 0
+    done = []
     for raw in paths:
         p = Path(raw)
-        for cand in (p,) if p.is_absolute() else (root / p, Path(settings.data_dir) / p):
-            cand = cand.resolve()
-            if cand.is_relative_to(root) and cand.is_file():
-                cand.unlink(missing_ok=True)
-                n += 1
-                break
-    return n
-
-
-def clean_bot_api(bot_api_dir: Path, now: datetime, days: int = BOT_API_DAYS) -> int:
-    """Solo i file sotto */documents/: il resto della cartella è stato del server."""
-    if not bot_api_dir.is_dir():
-        return 0
-    limit = now - timedelta(days=days)
-    n = 0
-    for docs in bot_api_dir.glob("*/documents"):
-        if not docs.is_dir():
+        try:
+            for cand in (p,) if p.is_absolute() else (root / p, Path(settings.data_dir) / p):
+                cand = cand.resolve()
+                if cand.is_relative_to(root) and cand.is_file():
+                    cand.unlink(missing_ok=True)
+                    break
+        except OSError:
+            log.warning("inbox: %s non cancellato", raw, exc_info=True)
             continue
-        for f in docs.rglob("*"):
-            if f.is_file() and not f.is_symlink() and _mtime(f) < limit:
-                f.unlink(missing_ok=True)
-                n += 1
-    return n
+        done.append(raw)
+    return done
 
 
 # ── giro completo ───────────────────────────────────────────────────────────
@@ -154,14 +147,17 @@ async def run_nightly(bot: Bot, settings: Settings, now: Clock = utcnow) -> list
 
     async def s_inbox():
         paths = inbox.expired_inbox_files(INBOX_DAYS)
-        n = await asyncio.to_thread(delete_inbox_files, paths, settings)
+        done = await asyncio.to_thread(delete_inbox_files, paths, settings)
+        inbox.clear_inbox_paths(done)
+        n = len(done)
         stale = inbox.stale_pending(INBOX_DAYS)
         if stale:
             await bot.send_message(settings.staff_chat_id, T.stale_pending(stale))
         return f"{n} file, {len(stale)} invii vecchi"
 
-    async def s_bot_api():
-        return await asyncio.to_thread(clean_bot_api, settings.bot_api_dir, t)
+    async def s_orphans():
+        sent, dropped = await submit.recover_orphans(bot, settings)
+        return f"{sent} recuperati, {dropped} scartati"
 
     async def s_downloads():
         cutoff = (t - timedelta(days=DOWNLOADS_DAYS)).strftime(FMT)
@@ -175,8 +171,8 @@ async def run_nightly(bot: Bot, settings: Settings, now: Clock = utcnow) -> list
 
     await step("backup", s_backup)
     await step("cestino", s_trash)
+    await step("orfani", s_orphans)
     await step("inbox", s_inbox)
-    await step("bot-api", s_bot_api)
     await step("download", s_downloads)
     await step("albero", s_tree)
     await step("kv", s_mark)
@@ -194,6 +190,10 @@ async def _loop(bot: Bot, settings: Settings, now: Clock, sleep) -> None:
         await admin.notify_empty_index(bot, settings)
     except Exception:
         log.exception("notify_empty_index fallito")
+    try:
+        await submit.recover_orphans(bot, settings)
+    except Exception:
+        log.exception("recover_orphans all'avvio fallito")
     if is_due(db.kv_get("nightly_last"), now()):
         await run_nightly(bot, settings, now)
     while True:

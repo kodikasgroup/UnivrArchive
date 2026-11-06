@@ -139,5 +139,108 @@ class HelperTests(unittest.TestCase):
         self.assertLessEqual(len(T.START_TEXT), 1024)
 
 
+def _query(data, chat_type="private", user_id=7):
+    from unittest.mock import AsyncMock, MagicMock
+    q = MagicMock()
+    q.data = data
+    q.id = "q1"
+    q.from_user.id = user_id
+    q.message.chat.type = chat_type
+    q.message.chat.id = -100 if chat_type != "private" else user_id
+    q.answer = AsyncMock()
+    return q
+
+
+class HandlerFixTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        from unittest import mock
+        from bot import keyboards
+        keyboards.set_bot_username("testbot")
+        archive.tree = sup.make_tree(specs(), old=True)
+        self.settings = sup._Settings()
+        self.bot = mock.AsyncMock()
+        self.sent = []
+
+        async def send_file(bot, settings, user_id, node, **kw):
+            self.sent.append(node.id)
+        for target, attr, value in (
+                (files.storage, "send_file", send_file),
+                (files.content, "log_download", lambda *a: None),
+                (files, "SEND_INTERVAL", 0)):
+            p = mock.patch.object(target, attr, value, create=True)
+            p.start()
+            self.addCleanup(p.stop)
+        files._active_downloads.clear()
+        files._reported.clear()
+
+    async def test_double_tap_starts_one_download(self):
+        import asyncio
+        q1, q2 = _query("all:2"), _query("all:2")
+        await asyncio.gather(files.on_all(q1, self.bot, self.settings),
+                             files.on_all(q2, self.bot, self.settings))
+        task = files._active_downloads[7]
+        await task
+        self.assertEqual(sorted(self.sent), [10, 11, 12])     # una volta sola
+        q2.answer.assert_awaited_with(T.ALL_BUSY)
+        self.assertNotIn(7, files._active_downloads)
+
+    async def test_finally_does_not_drop_newer_download(self):
+        import asyncio
+        newer = asyncio.get_running_loop().create_future()
+        files._active_downloads[7] = newer
+        await files.download_all(self.bot, self.settings, 7, [archive.tree.get(10)])
+        self.assertIs(files._active_downloads[7], newer)
+
+    async def test_download_all_rereads_tree(self):
+        nodes = archive.tree.free_files(2)
+        # /reindex: 11 ora costa, 12 è sparito
+        new = [n for n in specs() if n[0] != 12]
+        new = [(11, 2, "Analisi_2022.pdf", False, 5) if n[0] == 11 else n for n in new]
+        archive.tree = sup.make_tree(new, version=2, old=True)
+        await files.download_all(self.bot, self.settings, 7, nodes)
+        self.assertEqual(self.sent, [10])
+
+    async def test_download_all_forbidden_from_group_gives_hint(self):
+        from unittest import mock
+        from aiogram.exceptions import TelegramForbiddenError
+        self.bot.send_message.side_effect = TelegramForbiddenError(mock.MagicMock(), "blocked")
+        with mock.patch.object(files, "group_hint", mock.AsyncMock()) as hint:
+            q = _query("all:2", chat_type="supergroup")
+            await files.download_all(self.bot, self.settings, 7, archive.tree.free_files(2),
+                                     group_q=q, folder=archive.tree.get(2))
+        hint.assert_awaited_once_with(self.bot, q, archive.tree.get(2))
+
+    async def test_buy_on_now_free_file_delivers(self):
+        await files.on_buy(_query("buy:10"), self.bot, self.settings)
+        self.assertEqual(self.sent, [10])
+
+    async def test_group_delivery_confirms_with_toast(self):
+        from unittest import mock
+        q = _query("n:10", chat_type="supergroup")
+        with mock.patch.object(files.db, "is_vip", lambda uid: False, create=True):
+            await files.open_file(self.bot, self.settings, q.from_user,
+                                  archive.tree.get(10), q=q)
+        self.assertEqual(self.sent, [10])
+        q.answer.assert_awaited_once_with(T.SENT_PRIVATE)
+
+    async def test_report_ticket_failure_answers_error(self):
+        import sys
+        import types
+        from unittest import mock
+        fake = types.SimpleNamespace(open_ticket=mock.AsyncMock(side_effect=RuntimeError))
+        q = _query("rep:10:broken")
+        q.message = None
+        with mock.patch.dict(sys.modules, {"bot.handlers.tickets": fake}), \
+                mock.patch("bot.handlers.tickets", fake, create=True):
+            await files.on_report(q, self.bot, self.settings)
+        q.answer.assert_awaited_once_with(T.REPORT_ERROR, show_alert=True)
+        self.assertNotIn((7, 10), files._reported)
+
+    def test_reported_is_pruned(self):
+        files._reported[(1, 1)] = 0.0
+        files._remember_report((2, 2), files.REPORT_COOLDOWN + 1.0)
+        self.assertEqual(list(files._reported), [(2, 2)])
+
+
 if __name__ == "__main__":
     unittest.main()
