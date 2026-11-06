@@ -1,0 +1,58 @@
+# Tutto punta a ./data dentro la cartella del progetto: niente volumi nascosti di Docker.
+x-bot: &bot
+  build: .
+  user: "${UID:-1000}:${GID:-1000}"          # stesso utente dell'host: i file in ./data restano tuoi
+  depends_on: [telegram-bot-api]
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }   # log ruotati
+
+services:
+  bot:
+    <<: *bot
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN:?manca BOT_TOKEN nel file .env}
+      ADMIN_IDS: ${ADMIN_IDS:?manca ADMIN_IDS nel file .env}
+      STAFF_CHAT_ID: ${STAFF_CHAT_ID:?manca STAFF_CHAT_ID nel file .env}
+      STORAGE_CHAT_ID: ${STORAGE_CHAT_ID:?manca STORAGE_CHAT_ID nel file .env}
+      LOG_CHAT_ID: ${LOG_CHAT_ID:-}
+      PRICE_MAX: ${PRICE_MAX:-50}
+      SUBMIT_MAX_MB: ${SUBMIT_MAX_MB:-200}
+      SUBMIT_PER_DAY: ${SUBMIT_PER_DAY:-10}
+      DONATION_LINK: ${DONATION_LINK:-}
+      RICH_MESSAGES: ${RICH_MESSAGES:-0}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ./data/prod:/data
+      - ./data/bot-api:/var/lib/telegram-bot-api:ro   # file scaricati dal server locale (§11.2)
+
+  bot-beta:                                    # solo con: docker compose --profile beta up -d
+    <<: *bot
+    profiles: [beta]
+    environment:
+      BOT_TOKEN: ${BETA_BOT_TOKEN:-}           # vuoto → il bot si ferma con errore chiaro
+      ADMIN_IDS: ${ADMIN_IDS:?manca ADMIN_IDS nel file .env}
+      STAFF_CHAT_ID: ${BETA_STAFF_CHAT_ID:-}
+      STORAGE_CHAT_ID: ${BETA_STORAGE_CHAT_ID:-}
+      LOG_CHAT_ID: ${LOG_CHAT_ID:-}
+      PRICE_MAX: ${PRICE_MAX:-50}
+      SUBMIT_MAX_MB: ${SUBMIT_MAX_MB:-200}
+      SUBMIT_PER_DAY: ${SUBMIT_PER_DAY:-10}
+      DONATION_LINK: ${DONATION_LINK:-}
+      RICH_MESSAGES: ${RICH_MESSAGES:-0}
+      LOG_LEVEL: DEBUG
+    volumes:
+      - ./data/beta:/data
+      - ./data/bot-api:/var/lib/telegram-bot-api:ro
+
+  telegram-bot-api:                            # server Bot API locale: file fino a 2 GB, serve tutti i bot
+    image: aiogram/telegram-bot-api:10.3       # versione fissata (multi-arch, anche arm64): aggiornare a mano
+    environment:
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID:?manca TELEGRAM_API_ID nel file .env}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH:?manca TELEGRAM_API_HASH nel file .env}
+      TELEGRAM_LOCAL: "1"
+    volumes:
+      - ./data/bot-api:/var/lib/telegram-bot-api
+    restart: unless-stopped
+    # nessuna porta pubblicata: lo raggiungono solo i bot, sulla rete interna di compose

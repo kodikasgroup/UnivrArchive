@@ -1,2 +1,1 @@
-python-decouple
-python-telegram-bot
+aiogram==3.31.0
