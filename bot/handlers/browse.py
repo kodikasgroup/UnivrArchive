@@ -124,6 +124,11 @@ def _file_id_of(node: archive.Node) -> str | None:
     return blob.file_id if blob else None
 
 
+def _help(settings: Settings) -> str:
+    from bot.texts import common
+    return common.help_text(settings.donation_link)
+
+
 def _common_text(name: str, fallback: str, settings: Settings) -> str:
     from bot.texts import common
     text = getattr(common, name, fallback)
@@ -237,7 +242,7 @@ async def on_noop(q: CallbackQuery) -> None:
 
 @router.message(Command("help"))
 async def on_help(message: Message, settings: Settings) -> None:
-    await message.answer(_common_text("HELP", T.START_TEXT, settings))
+    await message.answer(_help(settings))
 
 
 @router.message(Command("privacy"))
@@ -247,7 +252,7 @@ async def on_privacy(message: Message, settings: Settings) -> None:
 
 @router.message(Command(*LEGACY_COMMANDS))
 async def on_legacy(message: Message, settings: Settings) -> None:
-    await message.answer(_common_text("HELP", T.LEGACY_FALLBACK, settings))
+    await message.answer(_help(settings))
 
 
 @router.message(Command("crediti"))

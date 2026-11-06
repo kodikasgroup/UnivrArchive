@@ -343,11 +343,6 @@ async def ingest(bot: Bot, settings: "Settings", message: Message, is_admin: boo
     return Outcome(sub_id=sub_id)
 
 
-def _with_unknown_button(markup: InlineKeyboardMarkup) -> InlineKeyboardMarkup:
-    row = [InlineKeyboardButton(text=T.PICK_UNKNOWN_BTN, callback_data="pick:0:ok")]
-    return InlineKeyboardMarkup(inline_keyboard=[*markup.inline_keyboard, row])
-
-
 async def _finalize(bot: Bot, settings: "Settings", message: Message,
                     outcomes: list[Outcome], is_admin: bool) -> None:
     notes = [o.text for o in outcomes if o.text]
@@ -364,7 +359,7 @@ async def _finalize(bot: Bot, settings: "Settings", message: Message,
         _admin_msgs[(sent.chat.id, sent.message_id)] = ctx
         return
     text, kb = keyboards.folder(None, mode="pick")
-    sent = await message.answer(f"{T.PICK_PROMPT}\n\n{text}", reply_markup=_with_unknown_button(kb))
+    sent = await message.answer(f"{T.PICK_PROMPT}\n\n{text}", reply_markup=kb)
     key = (sent.chat.id, sent.message_id)
     session = PickSession(user_id=message.from_user.id, sub_ids=accepted)
     session.task = asyncio.create_task(_pick_timeout(bot, settings, key, sent))
@@ -456,7 +451,7 @@ async def cb_pick(callback: CallbackQuery, bot: Bot, settings: "Settings") -> No
     page = int(parts[2]) if len(parts) > 2 else 0
     text, kb = keyboards.folder(node.id if node else None, page, mode="pick")
     await callback.answer()
-    await edit_message(msg, f"{T.PICK_PROMPT}\n\n{text}", _with_unknown_button(kb))
+    await edit_message(msg, f"{T.PICK_PROMPT}\n\n{text}", kb)
 
 
 # --- moderazione: navigazione cartella (dsn:/dst:) ---------------------------
