@@ -164,6 +164,9 @@ conn = _Conn()
 
 def init(db_path: Path) -> None:
     """Apre il DB (creando il file), imposta i PRAGMA e applica le migrazioni."""
+    global conn
+    if not isinstance(conn, _Conn):  # qualcuno (es. un test) ha sostituito il proxy
+        conn = _Conn()
     close()
     real = sqlite3.connect(str(db_path), check_same_thread=False)
     real.execute("PRAGMA journal_mode = WAL")

@@ -179,8 +179,21 @@ def make_settings(tmp: Path, **kw) -> SimpleNamespace:
     return s
 
 
-def set_tree(*nodes: FakeNode) -> FakeTree:
-    archive.tree = FakeTree(*nodes)
+def set_tree(*nodes: FakeNode):
+    """Albero vero (`archive.Tree`) + righe in `nodes` (con il DB reale c'è la chiave esterna)."""
+    if getattr(archive, "STUB", False) or getattr(db, "STUB", False):
+        archive.tree = FakeTree(*nodes)
+        return archive.tree
+    rows = [(n.id, n.path, n.parent_id, int(n.is_dir), n.price, 0, n.sha256,
+             "2024-01-01 00:00:00", 0, 0) for n in nodes]
+    for r in rows:
+        if r[6]:
+            db.conn.execute("INSERT OR IGNORE INTO blobs (sha256) VALUES (?)", (r[6],))
+        db.conn.execute(
+            "INSERT OR REPLACE INTO nodes (id, path, parent_id, is_dir, price, size, sha256, added_at, hidden, removed)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?)", r)
+    db.conn.commit()
+    archive.tree = archive.Tree(rows)
     return archive.tree
 
 
