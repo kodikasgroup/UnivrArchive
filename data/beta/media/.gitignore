@@ -1,0 +1,4 @@
+# Contenuto locale: mai su git. Questo file tiene solo la cartella nel repo.
+*
+!.gitignore
+!*/

@@ -56,3 +56,12 @@ services:
       - ./data/bot-api:/var/lib/telegram-bot-api
     restart: unless-stopped
     # nessuna porta pubblicata: lo raggiungono solo i bot, sulla rete interna di compose
+
+  bot-api-cleaner:                             # cancella i file scaricati dal server dopo 1 giorno
+    image: alpine:3.24.4                       # (il bot li ha già copiati in inbox/, §11.2)
+    user: "101:101"                            # stesso utente del server Bot API: solo lui può cancellare i suoi file;
+                                               # i bot montano data/bot-api in sola lettura
+    volumes:
+      - ./data/bot-api:/var/lib/telegram-bot-api
+    command: ["sh", "-c", "while true; do find /var/lib/telegram-bot-api -path '*/documents/*' -type f -mmin +1440 -delete; sleep 3600; done"]
+    restart: unless-stopped

@@ -1,0 +1,6 @@
+# L'immagine contiene solo il codice del bot: tutto il resto resta fuori
+# dal contesto di build (data/ da sola pesa gigabyte).
+*
+!bot/
+!requirements.txt
+**/__pycache__

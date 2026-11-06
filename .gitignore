@@ -1,9 +1,25 @@
+# Python
 __pycache__/
+*.py[cod]
 .venv/
+
+# Segreti: solo il modello è versionato
 .env
-data/
-.idea/
-*.log
+.env.*
+!.env.example
+
+# Dati locali: in data/ ogni cartella ha il suo .gitignore che tiene solo la struttura
 *.db
+*.db-wal
+*.db-shm
 *.zip
+*.log
+
+# Editor, sistema, strumenti locali
+.idea/
+.vscode/
 .DS_Store
+.claude/
+
+# Planning interno (task per gli agenti): non fa parte del progetto
+docs/tasks/
