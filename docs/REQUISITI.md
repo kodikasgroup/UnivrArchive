@@ -146,7 +146,7 @@ La cartella del progetto (con `data/`) va **sull'SSD**, non sulla microSD.
 
 Le cartelle di `data/` esistono già nel repo (vuote). Al primo avvio il server
 Bot API diventa proprietario di `data/bot-api/` (utente 101): è normale, non
-va cambiato.
+va cambiato. Cosa contiene e perché: [`INSTALLAZIONE.md` §1.2](INSTALLAZIONE.md#12-databot-api-la-cartella-del-server-bot-api).
 
 ---
 

@@ -27,6 +27,54 @@ data/
 Le cartelle esistono già nel repo, vuote. Il loro contenuto non va mai su git.
 La configurazione sta solo in `.env`.
 
+### 1.1 Cosa contiene ogni cartella
+
+| Cartella | Contenuto | Chi la scrive | Nel backup? |
+|---|---|---|---|
+| `prod/archive/` | il materiale, organizzato in cartelle. È la **fonte di verità**: il bot mostra quello che c'è qui dopo `/reindex` | lo staff (SFTP, `rsync`, ⚙️ Gestisci), il bot quando approva un invio | **sì** |
+| `prod/bot.db` | database: utenti, crediti, acquisti, indice dei file, invii, ticket | il bot | **sì** (più le copie in `backups/`) |
+| `prod/inbox/` | file inviati dagli utenti in attesa di moderazione. Approvati → spostati in `archive/`; rifiutati → cancellati dopo 30 giorni | il bot | sì |
+| `prod/trash/` | file eliminati con 🗑 da ⚙️ Gestisci, in `trash/<data>/`. Cancellati dopo 30 giorni | il bot | sì |
+| `prod/media/` | `welcome.mp4`, l'animazione di `/start` (caricata su Telegram all'avvio del bot) | chi installa | sì |
+| `prod/backups/` | copie notturne del database, le ultime 14 | il bot | sì |
+| `bot-api/` | cartella di lavoro del server Bot API locale (vedi sotto) | il server Bot API | **no** |
+
+### 1.2 `data/bot-api/`: la cartella del server Bot API
+
+Il bot non parla con i server di Telegram direttamente, ma tramite il server
+Bot API locale (container `telegram-bot-api`), che permette file fino a 2 GB.
+`data/bot-api/` è la sua cartella di lavoro; il bot non ci scrive niente.
+
+**Cosa contiene:**
+
+- una sottocartella per ogni bot (prod e beta) con la **sessione** del bot verso
+  Telegram (database interno del server);
+- dentro, `documents/`, `photos/`, … con i file **scaricati** dal server quando
+  il bot chiede un file a Telegram. Per UniVrArchive sono i documenti che gli
+  utenti inviano al bot.
+
+**Il percorso di un file inviato da un utente:**
+
+1. l'utente manda un PDF al bot;
+2. il server Bot API lo scarica in `data/bot-api/<bot>/documents/`;
+3. il bot lo legge da lì (sola lettura), ne calcola l'impronta (sha256) e lo
+   **copia** in `data/prod/inbox/`;
+4. dopo 24 ore `bot-api-cleaner` cancella la copia in `bot-api/`: quella che
+   conta è in `inbox/`.
+
+I file che il bot carica nel canale storage non passano da questa cartella.
+
+**Da sapere:**
+
+- **Proprietario: utente 101.** Al primo avvio il server diventa proprietario
+  della cartella: è normale, non cambiarlo. Per questo il bot la monta in sola
+  lettura e la pulizia la fa un container separato (`bot-api-cleaner`) con lo
+  stesso utente del server.
+- **Dati sensibili.** Contiene la sessione dei bot: trattala come il token.
+  Non va su git (è ignorata) e non serve nel backup.
+- **Si può perdere senza danni.** Se viene cancellata, il server la ricrea al
+  prossimo avvio. I file utili sono già in `inbox/` o nell'archivio.
+
 ---
 
 ## 2. Prima installazione
@@ -111,8 +159,11 @@ esterni): un `rsync` notturno di tutta `data/` su un altro disco o NAS.
 
 ```bash
 # crontab -e  (alle 05:00 ora locale)
-0 5 * * * rsync -a --delete /percorso/UnivrArchive/data/ /mnt/backup/univrarchive/
+0 5 * * * rsync -a --delete --exclude 'bot-api/' /percorso/UnivrArchive/data/ /mnt/backup/univrarchive/
 ```
+
+`bot-api/` è esclusa: contiene la sessione dei bot (dato sensibile) e il server
+la ricrea da solo ([§1.2](#12-databot-api-la-cartella-del-server-bot-api)).
 
 Il canale storage su Telegram contiene una copia di ogni file, ma **non**
 sostituisce questo backup: il materiale segnalato per copyright può sparire.
