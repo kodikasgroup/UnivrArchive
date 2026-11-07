@@ -190,7 +190,7 @@ Un gruppo non collegato viene ignorato. `/scollega` per togliere.
 
 | Problema | Cosa fare |
 |---|---|
-| Il bot non risponde | `docker compose ps`, `docker compose logs -f bot` sul Pi |
+| Il bot non risponde | `docker compose ps`, `docker compose logs -f archive_bot` sul Pi |
 | Un file non si scarica | ⚠️ Segnala da utente arriva in staff; prova `/reindex` |
 | Errori ripetuti | arrivano in `LOG_CHAT_ID` con il dettaglio |
 | DB rovinato | ripristino dal backup notturno: procedura in [`INSTALLAZIONE.md` §6](INSTALLAZIONE.md#6-ripristinare-il-database) |

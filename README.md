@@ -36,7 +36,7 @@ cp .env.example .env                  # compilare: token, admin, chat (api_id/ha
 rsync -a /percorso/materiale/ data/prod/archive/   # -a conserva le date
 cp assets/welcome.mp4 data/prod/media/            # animazione di /start (opzionale)
 docker compose up -d --build
-docker compose logs -f bot
+docker compose logs -f archive_bot
 ```
 
 Poi, da Telegram, un admin manda `/reindex` al bot e preme **✅ Applica**.

@@ -10,10 +10,10 @@ che va preparato su Telegram è in [`REQUISITI.md`](REQUISITI.md).
 
 | Container | Cosa fa |
 |---|---|
-| `bot` | il bot (Python 3.14, aiogram 3.31) |
+| `archive_bot` | il bot (Python 3.14, aiogram 3.31) |
 | `telegram-bot-api` | **opzionale** (profilo `local-api`): server Bot API locale, file fino a 2 GB |
 | `bot-api-cleaner` | **opzionale** (profilo `local-api`): cancella dopo 24 ore i file scaricati dal server locale |
-| `bot-beta` | bot di test, solo con il profilo `beta` |
+| `archive_bot_beta` | bot di test, solo con il profilo `beta` |
 
 ### Server di Telegram o server locale
 
@@ -119,7 +119,7 @@ Avvio:
 
 ```bash
 docker compose up -d --build
-docker compose logs -f bot
+docker compose logs -f archive_bot
 ```
 
 Se manca una variabile obbligatoria, `docker compose` si ferma subito dicendo
@@ -139,7 +139,7 @@ Token, canali e dati separati da produzione (`BETA_*` nel `.env`, cartella
 rsync -a data/prod/archive/ data/beta/archive/     # opzionale: archivio vero per le prove
 # solo con il server locale: curl "https://api.telegram.org/bot<TOKEN_BETA>/logOut"
 docker compose --profile beta up -d --build
-docker compose logs -f bot-beta
+docker compose logs -f archive_bot_beta
 ```
 
 ---
@@ -187,10 +187,10 @@ sostituisce questo backup: il materiale segnalato per copyright può sparire.
 ## 6. Ripristinare il database
 
 ```bash
-docker compose stop bot
+docker compose stop archive_bot
 cp data/prod/backups/bot-AAAA-MM-GG.db data/prod/bot.db
 rm -f data/prod/bot.db-wal data/prod/bot.db-shm
-docker compose start bot
+docker compose start archive_bot
 ```
 
 Poi un admin lancia `/reindex`: l'albero si riallinea all'archivio su disco,
@@ -208,9 +208,9 @@ lo **stesso token** del vecchio bot, così gli utenti non devono fare nulla.
 
 ```bash
 cp /percorso/vecchio/db/UserLogDB.db /tmp/old.db
-docker compose run --rm -v /tmp/old.db:/old.db:ro bot-beta \
+docker compose run --rm -v /tmp/old.db:/old.db:ro archive_bot_beta \
     python -m scripts.migrate_old_db /old.db /data/bot.db --dry-run   # solo riepilogo
-docker compose run --rm -v /tmp/old.db:/old.db:ro bot-beta \
+docker compose run --rm -v /tmp/old.db:/old.db:ro archive_bot_beta \
     python -m scripts.migrate_old_db /old.db /data/bot.db
 ```
 
@@ -244,5 +244,5 @@ successo nel frattempo sul nuovo bot va riportato a mano.
 | File con 📦, "troppo grande" | si usa il server di Telegram (limite 50 MB) | attivare il server locale (§1): `COMPOSE_PROFILES=local-api` + chiavi API, `logOut`, riavvio, `/reindex` |
 | File sopra 50 MB non partono con il server locale attivo | server Bot API locale non raggiungibile | `docker compose ps`, `docker compose logs telegram-bot-api` |
 | Si torna dal server locale a quello di Telegram | il token è "agganciato" al server locale | togliere `local-api` da `COMPOSE_PROFILES`, `logOut` del token **sul server locale** prima di fermarlo, attendere 10 minuti, riavviare |
-| Errori ripetuti | — | arrivano in `LOG_CHAT_ID` se impostato, sempre in `docker compose logs bot` |
+| Errori ripetuti | — | arrivano in `LOG_CHAT_ID` se impostato, sempre in `docker compose logs archive_bot` |
 | `data/bot-api/` appartiene all'utente 101 | è il server Bot API | normale, non cambiarlo |

@@ -12,8 +12,9 @@ x-bot: &bot
     options: { max-size: "10m", max-file: "3" }   # log ruotati
 
 services:
-  bot:
+  archive_bot:
     <<: *bot
+    container_name: archive_bot
     environment:
       BOT_TOKEN: ${BOT_TOKEN:?manca BOT_TOKEN nel file .env}
       ADMIN_IDS: ${ADMIN_IDS:?manca ADMIN_IDS nel file .env}
@@ -31,8 +32,9 @@ services:
       - ./data/prod:/data
       - ./data/bot-api:/var/lib/telegram-bot-api:ro   # file scaricati dal server locale (invii utenti)
 
-  bot-beta:                                    # solo con: docker compose --profile beta up -d
+  archive_bot_beta:                            # solo con: docker compose --profile beta up -d
     <<: *bot
+    container_name: archive_bot_beta
     profiles: [beta]
     environment:
       BOT_TOKEN: ${BETA_BOT_TOKEN:-}           # vuoto → il bot si ferma con errore chiaro

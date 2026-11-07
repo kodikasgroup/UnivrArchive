@@ -146,7 +146,7 @@ La cartella del progetto (con `data/`) va **sull'SSD**, non sulla microSD.
 - Docker Engine + plugin Docker Compose v5 (`docker compose version`).
 - `git`.
 - Nient'altro: Python, SQLite e il server Bot API girano nei container
-  (`bot`, più `telegram-bot-api` e `bot-api-cleaner` se il server locale è attivo).
+  (`archive_bot`, più `telegram-bot-api` e `bot-api-cleaner` se il server locale è attivo).
 
 Le cartelle di `data/` esistono già nel repo (vuote). Al primo avvio il server
 Bot API diventa proprietario di `data/bot-api/` (utente 101): è normale, non
