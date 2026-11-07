@@ -642,6 +642,11 @@ async def start_reindex(
         raise
 
 
+def _storage_limit() -> int | None:
+    from bot import storage  # import tardivo: storage dipende da archive solo per i tipi
+    return storage.MAX_SEND_BYTES
+
+
 async def apply_reindex(admin_id: int) -> ApplyResult:
     global _state
     _expire_if_stale()
@@ -666,7 +671,7 @@ async def apply_reindex(admin_id: int) -> ApplyResult:
         p = st.preview
         result = ApplyResult(
             added=len(p.added), modified=len(p.modified), moved=len(p.moved), removed=len(p.removed),
-            to_upload=db_nodes.count_to_upload(),
+            to_upload=db_nodes.count_to_upload(_storage_limit()),
         )
     except DiskChanged:
         raise

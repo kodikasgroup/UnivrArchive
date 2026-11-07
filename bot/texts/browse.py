@@ -157,6 +157,8 @@ SEND_ERROR = ("😞 Non sono riuscito a inviarti il file. Riprova tra poco: se l
 OPEN_PRIVATE = "Questo file te lo mando in privato: aprimi e riprova."
 OPEN_PRIVATE_BUTTON = "📩 Apri in privato"
 SENT_PRIVATE = "📬 Te l'ho mandato in privato"
+TOO_LARGE = ("📦 Questo file è troppo grande per essere inviato al momento "
+             "(oltre il limite del server). Lo staff può abilitarlo: segnalalo con /feedback.")
 PREPARING = "⏳ Questo file è appena arrivato nell'archivio: lo sto preparando e te lo mando appena è pronto."
 QUEUED_PRIVATE = "⏳ Te lo mando in privato appena è pronto"
 

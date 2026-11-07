@@ -2,7 +2,10 @@
 x-bot: &bot
   build: .
   user: "${UID:-1000}:${GID:-1000}"          # stesso utente dell'host: i file in ./data restano tuoi
-  depends_on: [telegram-bot-api]
+  depends_on:
+    telegram-bot-api:
+      condition: service_started
+      required: false                        # senza profilo local-api il server non c'è: si usa quello di Telegram
   restart: unless-stopped
   logging:
     driver: json-file
@@ -23,6 +26,7 @@ services:
       DONATION_LINK: ${DONATION_LINK:-}
       RICH_MESSAGES: ${RICH_MESSAGES:-0}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      COMPOSE_PROFILES: ${COMPOSE_PROFILES:-}  # "local-api" → server Bot API locale (file fino a 2 GB)
     volumes:
       - ./data/prod:/data
       - ./data/bot-api:/var/lib/telegram-bot-api:ro   # file scaricati dal server locale (invii utenti)
@@ -42,15 +46,17 @@ services:
       DONATION_LINK: ${DONATION_LINK:-}
       RICH_MESSAGES: ${RICH_MESSAGES:-0}
       LOG_LEVEL: DEBUG
+      COMPOSE_PROFILES: ${COMPOSE_PROFILES:-}
     volumes:
       - ./data/beta:/data
       - ./data/bot-api:/var/lib/telegram-bot-api:ro
 
-  telegram-bot-api:                            # server Bot API locale: file fino a 2 GB, serve tutti i bot
+  telegram-bot-api:                            # OPZIONALE (profilo local-api): file fino a 2 GB, serve tutti i bot
     image: aiogram/telegram-bot-api:10.3       # versione fissata (multi-arch, anche arm64): aggiornare a mano
-    environment:
-      TELEGRAM_API_ID: ${TELEGRAM_API_ID:?manca TELEGRAM_API_ID nel file .env}
-      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH:?manca TELEGRAM_API_HASH nel file .env}
+    profiles: [local-api]
+    environment:                               # vuoti → il server si ferma dicendo cosa manca
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID:-}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH:-}
       TELEGRAM_LOCAL: "1"
     volumes:
       - ./data/bot-api:/var/lib/telegram-bot-api
@@ -59,6 +65,7 @@ services:
 
   bot-api-cleaner:                             # cancella i file scaricati dal server dopo 1 giorno
     image: alpine:3.24.4                       # (il bot li ha già copiati in inbox/)
+    profiles: [local-api]
     user: "101:101"                            # stesso utente del server Bot API: solo lui può cancellare i suoi file;
                                                # i bot montano data/bot-api in sola lettura
     volumes:

@@ -38,6 +38,17 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(s.log_level, "INFO")
         self.assertEqual(s.data_dir, Path("/data"))
         self.assertEqual(s.bot_api_url, "http://telegram-bot-api:8081")
+        self.assertFalse(s.local_api)                     # default: server di Telegram
+        self.assertEqual(s.max_send_bytes, 50 * 1024 * 1024)
+        self.assertEqual(s.max_download_bytes, 20 * 1024 * 1024)
+
+    def test_local_api_switch(self):
+        for profiles, expected in (("local-api", True), ("beta,local-api", True), (" local-api , beta", True),
+                                   ("beta", False), ("", False), ("local-apix", False)):
+            s = load({**MIN, "COMPOSE_PROFILES": profiles})
+            self.assertEqual(s.local_api, expected, profiles)
+        s = load({**MIN, "COMPOSE_PROFILES": "local-api"})
+        self.assertEqual((s.max_send_bytes, s.max_download_bytes), (2000 * 1024 * 1024,) * 2)
 
     def test_derived_paths(self):
         s = load({**MIN, "DATA_DIR": "/x"})

@@ -38,6 +38,27 @@ class Blob:
     storage_message_id: int | None
 
 
+# Dimensione massima inviabile: 50 MB col server di Telegram, 2 GB col server locale.
+# Impostata all'avvio da configure(); None = nessun limite (test).
+MAX_SEND_BYTES: int | None = None
+LOCAL_API: bool = True  # server Bot API locale in uso
+
+
+def configure(settings: Settings) -> None:
+    global MAX_SEND_BYTES, LOCAL_API
+    MAX_SEND_BYTES = settings.max_send_bytes
+    LOCAL_API = settings.local_api
+
+
+def too_large(node: Node) -> bool:
+    """Il file supera il limite del server Bot API in uso: visibile ma non inviabile."""
+    return MAX_SEND_BYTES is not None and not node.is_dir and (node.size or 0) > MAX_SEND_BYTES
+
+
+class TooLarge(Exception):
+    """File oltre il limite del server Bot API in uso (serve il server locale)."""
+
+
 class NotReady(Exception):
     """Il file non è ancora nel canale: è in testa alla coda e partirà appena caricato."""
 
@@ -154,6 +175,8 @@ async def send_file(
     chiamata in quel momento (es. per contare il download)."""
     if not node.sha256:
         raise ValueError("send_file: il nodo non ha sha256")
+    if too_large(node):
+        raise TooLarge(node.path)
     blob = db_nodes.get_blob(node.sha256)
     extra = {"message_effect_id": message_effect_id} if message_effect_id else {}
     waiting = _Waiting(chat_id, caption, reply_markup, protect, extra, on_sent)
@@ -248,7 +271,7 @@ def resume_background_upload(
         if progress is not None:  # l'ultimo che chiede riceve l'avanzamento
             _progress = progress
         return _background
-    if not _priority and not db_nodes.blobs_to_upload():
+    if not _priority and not db_nodes.blobs_to_upload(MAX_SEND_BYTES):
         return None
     _progress = progress
     _background = asyncio.get_running_loop().create_task(_run_background(bot, settings))
@@ -303,7 +326,7 @@ async def _run_background(bot, settings) -> None:
             job = _priority.pop(sha)  # tolto ora: chi chiede durante il caricamento crea un job nuovo
             await _run_priority(bot, settings, sha, job)
             continue
-        todo = [t for t in db_nodes.blobs_to_upload() if tuple(t) not in failed]
+        todo = [t for t in db_nodes.blobs_to_upload(MAX_SEND_BYTES) if tuple(t) not in failed]
         if not todo:
             break
         sha, path = todo[0]

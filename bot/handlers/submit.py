@@ -104,6 +104,29 @@ def display_path(rel: str) -> str:
     return " › ".join(p.replace("_", " ").replace("-", " ") for p in rel.split("/") if p)
 
 
+def submit_limit_mb(settings: "Settings") -> int:
+    """Limite degli invii: SUBMIT_MAX_MB, ma col server di Telegram il bot non scarica oltre 20 MB."""
+    return min(settings.submit_max_mb, settings.max_download_bytes // (1024 * 1024))
+
+
+async def _download_sha256(bot: Bot, file_path: str, dst: Path) -> str:
+    """Scarica dal server di Telegram in `dst` e calcola lo sha256; niente copie parziali."""
+    try:
+        await bot.download_file(file_path, destination=dst, timeout=120)
+        return await asyncio.to_thread(_sha256_file, dst)
+    except BaseException:
+        dst.unlink(missing_ok=True)
+        raise
+
+
+def _sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        while chunk := f.read(1 << 20):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def _sha256_copy(src: Path, dst: Path) -> str:
     """Copia calcolando lo sha256; se fallisce non lascia una copia parziale."""
     h = hashlib.sha256()
@@ -350,8 +373,9 @@ async def ingest(bot: Bot, settings: "Settings", message: Message, is_admin: boo
         return Outcome(text=T.SEND_NO_NAME)
     if ext not in ALLOWED_EXTENSIONS:
         return Outcome(text=T.SEND_BAD_EXT.format(allowed=", ".join(sorted(ALLOWED_EXTENSIONS))))
-    if doc.file_size and doc.file_size > settings.submit_max_mb * 1024 * 1024:
-        return Outcome(text=T.SEND_TOO_BIG.format(max_mb=settings.submit_max_mb))
+    max_mb = submit_limit_mb(settings)
+    if doc.file_size and doc.file_size > max_mb * 1024 * 1024:
+        return Outcome(text=T.SEND_TOO_BIG.format(max_mb=max_mb))
     if not is_admin:
         n = inbox.count_recent_pending(user.id)
         if n >= settings.submit_per_day:
@@ -363,10 +387,13 @@ async def ingest(bot: Bot, settings: "Settings", message: Message, is_admin: boo
                                      doc.file_size, message.message_id)
     try:
         tg_file = await bot.get_file(doc.file_id)
-        src = local_source(settings, tg_file.file_path)
         settings.inbox_dir.mkdir(parents=True, exist_ok=True)
         dst = settings.inbox_dir / f"{sub_id}.{ext}"
-        sha = await asyncio.to_thread(_sha256_copy, src, dst)
+        if settings.local_api:  # il server locale l'ha già scaricato: si copia dal suo disco
+            src = local_source(settings, tg_file.file_path)
+            sha = await asyncio.to_thread(_sha256_copy, src, dst)
+        else:                   # server di Telegram: download HTTP (max 20 MB)
+            sha = await _download_sha256(bot, tg_file.file_path, dst)
     except Exception:
         log.exception("invio %s: download fallito", sub_id)
         inbox.delete_submission(sub_id)

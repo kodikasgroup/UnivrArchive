@@ -13,7 +13,8 @@ organizzato per corso, anno e materia.
 - **Naviga l'archivio** con i bottoni: corso → anno → materia → file, con
   percorso visibile e pagine da 10.
 - **Invia i file all'istante**: ogni file viene caricato su Telegram una sola
-  volta, poi parte dal suo `file_id`. File fino a 2 GB.
+  volta, poi parte dal suo `file_id`. File fino a 50 MB, o fino a 2 GB attivando il
+  server Bot API locale (opzionale).
 - **Cerca** ovunque: `@bot analisi` in qualsiasi chat, `/cerca`, link diretti a
   cartelle e file.
 - **Preferiti, recenti, novità** (🆕 sui file aggiunti negli ultimi 7 giorni).
@@ -26,12 +27,12 @@ organizzato per corso, anno e materia.
 ## Avvio rapido
 
 Requisiti: Docker con Compose v5, un bot da @BotFather, due chat Telegram
-(canale storage e gruppo staff), `api_id`/`api_hash` da my.telegram.org.
+(canale storage e gruppo staff); per i file oltre 50 MB, opzionale, `api_id`/`api_hash` da my.telegram.org.
 Tutti i passaggi in [`docs/REQUISITI.md`](docs/REQUISITI.md).
 
 ```bash
 git clone https://github.com/kodikasgroup/UnivrArchive.git && cd UnivrArchive
-cp .env.example .env                  # compilare: token, admin, chat, api_id/hash
+cp .env.example .env                  # compilare: token, admin, chat (api_id/hash solo per file > 50 MB)
 rsync -a /percorso/materiale/ data/prod/archive/   # -a conserva le date
 cp assets/welcome.mp4 data/prod/media/            # animazione di /start (opzionale)
 docker compose up -d --build

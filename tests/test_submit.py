@@ -309,6 +309,46 @@ class IngestTests(Base):
         self.assertEqual(Path(sub.inbox_path).read_bytes(), b"hello")
         self.assertEqual(Path(sub.inbox_path).parent, self.settings.inbox_dir)
 
+    def cloud(self):
+        """Server di Telegram: niente disco del server locale, download HTTP, max 20 MB."""
+        self.settings.local_api = False
+        self.settings.max_download_bytes = 20 * 1024 * 1024
+        downloads = []
+
+        async def download_file(file_path, destination=None, timeout=30, **kw):
+            downloads.append(file_path)
+            Path(destination).write_bytes(b"dal cloud")
+        self.bot.download_file = download_file
+        self.bot.files["F1"] = "documents/file_1.pdf"   # percorso relativo, come il server cloud
+        return downloads
+
+    def test_cloud_downloads_over_http_into_inbox(self):
+        downloads = self.cloud()
+        o = self.run_ingest(self.msg())
+        self.assertIsNotNone(o.sub_id)
+        sub = inbox.get_submission(o.sub_id)
+        self.assertEqual(downloads, ["documents/file_1.pdf"])
+        self.assertEqual(Path(sub.inbox_path).read_bytes(), b"dal cloud")
+        self.assertEqual(sub.sha256, hashlib.sha256(b"dal cloud").hexdigest())
+
+    def test_cloud_limit_is_20_mb(self):
+        self.cloud()
+        self.assertEqual(submit.submit_limit_mb(self.settings), 20)
+        o = self.run_ingest(self.msg(size=21 * 1024 * 1024))
+        self.assertIsNone(o.sub_id)
+        self.assertIn("20", o.text)
+
+    def test_cloud_failed_download_leaves_nothing(self):
+        self.cloud()
+
+        async def boom(file_path, destination=None, **kw):
+            Path(destination).write_bytes(b"mez")
+            raise RuntimeError("rete giù")
+        self.bot.download_file = boom
+        o = self.run_ingest(self.msg())
+        self.assertIsNone(o.sub_id)
+        self.assertEqual(list(self.settings.inbox_dir.iterdir()), [])
+
     def test_bad_extension_size_and_rate(self):
         self.assertIn("non è accettato", self.run_ingest(self.msg(name="virus.exe")).text)
         self.assertIn("troppo grande", self.run_ingest(self.msg(size=201 * 1024 * 1024)).text)

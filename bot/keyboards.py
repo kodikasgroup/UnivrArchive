@@ -10,7 +10,7 @@ from aiogram.types import (
     InlineKeyboardMarkup,
 )
 
-from bot import archive
+from bot import archive, storage
 from bot.texts import browse as T
 
 Mode = Literal["browse", "pick", "staff", "group"]
@@ -73,6 +73,8 @@ def _folder_label(node: archive.Node, home: bool, tree: archive.Tree) -> str:
 
 
 def _file_label(node: archive.Node) -> str:
+    if storage.too_large(node):  # visibile ma non inviabile col server Bot API in uso
+        return f"📦{node.name}📦 · {T.size(node.size)}"
     label = f"📖{node.name}📖 · {T.size(node.size)}"
     if node.price > 0:
         label = f"⭐ {label} · {node.price} cr"
@@ -172,7 +174,7 @@ def _build(tree: archive.Tree, node_id: int | None, page: int, mode: Mode,
     # azioni della modalità
     if mode == "browse":
         actions = [InlineKeyboardButton(text=T.BTN_SEARCH, switch_inline_query_current_chat="")]
-        if not home and tree.free_files(node.id):
+        if not home and any(not storage.too_large(f) for f in tree.free_files(node.id)):
             actions.append(_btn(T.BTN_ALL, f"all:{node.id}"))
         if not home and _username:
             actions.append(InlineKeyboardButton(
@@ -216,7 +218,7 @@ def _page_button(text: str, data: str, enabled: bool) -> InlineKeyboardButton:
 def node_list(title: str, nodes: list[archive.Node]) -> tuple[str, InlineKeyboardMarkup]:
     rows = []
     for n in nodes[:LIST_LIMIT]:
-        icon = "📂" if n.is_dir else "📖"
+        icon = "📂" if n.is_dir else "📦" if storage.too_large(n) else "📖"
         where = short_crumb(n)
         label = f"{icon} {n.name}" + (f" — {where}" if where else "")
         if len(label) > 60:

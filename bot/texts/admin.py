@@ -134,7 +134,7 @@ def _added_groups(paths: list[str], n: int) -> str:
     return f"  ({body})"
 
 
-def _build_preview(p, n: int) -> str:
+def _build_preview(p, n: int, local_api: bool = True) -> str:
     out = ["🗂 <b>Anteprima reindex</b>"]
     out.append(f"+{len(p.added)} file" + (_added_groups(p.added, n) if p.added else ""))
     if p.modified:
@@ -162,18 +162,22 @@ def _build_preview(p, n: int) -> str:
         out.append(f"💰 {len(p.price_changed)} prezzo cambiato")
         out += _listing([f"{a}: {o} → {c}" for a, o, c in p.price_changed], n)
     if p.over_50mb:
-        out.append(f"⚠ {len(p.over_50mb)} file oltre 50 MB")
+        if local_api:
+            out.append(f"⚠ {len(p.over_50mb)} file oltre 50 MB")
+        else:
+            out.append(f"📦 {len(p.over_50mb)} file oltre 50 MB: visibili ma non inviabili "
+                       f"(per sbloccarli serve il server Bot API locale, COMPOSE_PROFILES=local-api)")
         out += _listing(p.over_50mb, n)
     if p.in_copy:
         out.append(f"⏳ {len(p.in_copy)} file ancora in copia, rilancia /reindex tra poco")
     return "\n".join(out)
 
 
-def reindex_preview(p) -> str:
+def reindex_preview(p, local_api: bool = True) -> str:
     """Anteprima formattata, sempre <= 4096 caratteri (si riducono i dettagli)."""
     text = ""
     for n in (MAX_ITEMS, 3, 2, 1, 0):
-        text = _build_preview(p, n)
+        text = _build_preview(p, n, local_api)
         if len(text) <= TG_LIMIT:
             return text
     return text[: TG_LIMIT - 1] + "…"  # non raggiungibile in pratica

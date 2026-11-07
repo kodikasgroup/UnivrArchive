@@ -76,11 +76,14 @@ async def main() -> None:
     archive.load_from_db()
 
     modules = load_handler_modules()
-    bot = Bot(
-        settings.token,
-        session=AiohttpSession(api=TelegramAPIServer.from_base(settings.bot_api_url, is_local=True)),
-        default=DefaultBotProperties(parse_mode="HTML", link_preview_is_disabled=True),
-    )
+    defaults = DefaultBotProperties(parse_mode="HTML", link_preview_is_disabled=True)
+    if settings.local_api:  # file fino a 2 GB
+        session = AiohttpSession(api=TelegramAPIServer.from_base(settings.bot_api_url, is_local=True))
+        bot = Bot(settings.token, session=session, default=defaults)
+    else:                   # server di Telegram: invio 50 MB, download 20 MB
+        bot = Bot(settings.token, default=defaults)
+    log.info("Server Bot API: %s", "locale" if settings.local_api else "Telegram (file oltre 50 MB bloccati)")
+    storage.configure(settings)
     dp = make_dispatcher(settings, modules)
 
     default_cmds, admin_cmds = build_commands(modules)

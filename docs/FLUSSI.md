@@ -15,7 +15,7 @@ flowchart LR
     S["👥 Gruppo staff<br/>moderazione, ticket"]
     subgraph PI["Raspberry Pi (docker compose)"]
         B["🤖 Bot<br/>aiogram"]
-        API["Server Bot API locale<br/>file fino a 2 GB"]
+        API["Server Bot API locale (opzionale)<br/>file fino a 2 GB"]
         subgraph DATA["./data/prod"]
             AR[("archive/<br/>i file")]
             IN[("inbox/<br/>invii in attesa")]

@@ -239,6 +239,12 @@ async def open_file(bot: Bot, settings: Settings, user: User, node: archive.Node
                     q: CallbackQuery | None = None) -> None:
     """Click su un file (callback `n:<id>`) o deep link `f_<id>` (q=None).
     Risponde alla callback, se c'è."""
+    if storage.too_large(node):  # serve il server Bot API locale
+        if q is not None:
+            await q.answer(T.TOO_LARGE, show_alert=True)
+        else:
+            await bot.send_message(user.id, T.TOO_LARGE)
+        return
     await ensure_username(bot)
     in_group = q is not None and is_group_query(q)
     if q is not None and not (in_group and owns(user.id, node)):
@@ -392,6 +398,7 @@ async def on_all(q: CallbackQuery, bot: Bot, settings: Settings) -> None:
     confirmed = len(parts) > 2 and parts[2] == "ok"
     folder_node = archive.tree.get(node_id)
     files = archive.tree.free_files(node_id) if folder_node and folder_node.is_dir else []
+    files = [f for f in files if not storage.too_large(f)]  # oltre il limite del server: esclusi
     if not files:
         await q.answer(T.ALL_NONE, show_alert=True)
         return
@@ -441,7 +448,7 @@ async def download_all(bot: Bot, settings: Settings, user_id: int,
         for i, old in enumerate(nodes, 1):
             # riletto a ogni invio: un /reindex può averlo rimosso o reso Exclusive
             node = archive.tree.get(old.id)
-            if node is None or node.is_dir or node.price > 0 or node.is_exclusive:
+            if node is None or node.is_dir or node.price > 0 or node.is_exclusive or storage.too_large(node):
                 continue
             sent = await _send_plain(bot, settings, user_id, node)
             if sent is None:  # l'utente ha bloccato il bot: inutile continuare

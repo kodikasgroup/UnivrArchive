@@ -236,6 +236,14 @@ class HandlerFixTests(unittest.IsolatedAsyncioTestCase):
         q.answer.assert_awaited_once_with(T.REPORT_ERROR, show_alert=True)
         self.assertNotIn((7, 10), files._reported)
 
+    async def test_too_large_file_shows_alert_and_sends_nothing(self):
+        from unittest import mock
+        q = _query("n:10")
+        with mock.patch.object(files.storage, "MAX_SEND_BYTES", 10):   # i file di prova pesano 1000 byte
+            await files.open_file(self.bot, self.settings, q.from_user, archive.tree.get(10), q=q)
+        q.answer.assert_awaited_once_with(T.TOO_LARGE, show_alert=True)
+        self.assertEqual(self.sent, [])
+
     def test_reported_is_pruned(self):
         files._reported[(1, 1)] = 0.0
         files._remember_report((2, 2), files.REPORT_COOLDOWN + 1.0)

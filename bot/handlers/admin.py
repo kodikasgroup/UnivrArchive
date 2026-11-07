@@ -85,7 +85,7 @@ async def _show_preview(msg: Message, preview: archive.Preview, admin_id: int) -
         archive.cancel_reindex(admin_id)
         await _edit(msg, T.REINDEX_NONE)
     else:
-        await _edit(msg, T.reindex_preview(preview), PREVIEW_KB)
+        await _edit(msg, T.reindex_preview(preview, local_api=storage.LOCAL_API), PREVIEW_KB)
 
 
 async def _run_reindex(bot: Bot, settings: Settings, chat_id: int, admin_id: int) -> None:

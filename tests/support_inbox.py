@@ -127,7 +127,8 @@ def make_settings(tmp: Path, **kw) -> SimpleNamespace:
     s = SimpleNamespace(
         archive_dir=tmp / "archive", inbox_dir=tmp / "inbox", trash_dir=tmp / "trash",
         bot_api_dir=tmp / "botapi", staff_chat_id=-100, admin_ids=frozenset({1, 2}),
-        submit_max_mb=200, submit_per_day=10, price_max=50)
+        submit_max_mb=200, submit_per_day=10, price_max=50,
+        local_api=True, max_download_bytes=2000 * 1024 * 1024)  # server Bot API locale (default dei test)
     for k, v in kw.items():
         setattr(s, k, v)
     for d in (s.archive_dir, s.inbox_dir, s.trash_dir, s.bot_api_dir):

@@ -96,6 +96,29 @@ class StorageTest(unittest.IsolatedAsyncioTestCase):
     def node(self, id_, path, sha):
         return Node(id_, None, path.split("/")[-1], path.split("/")[-1], path, False, 2, False, 0, 4, sha, datetime.now(timezone.utc))
 
+    def limit(self, max_bytes):
+        old = storage.MAX_SEND_BYTES
+        storage.MAX_SEND_BYTES = max_bytes
+        self.addCleanup(setattr, storage, "MAX_SEND_BYTES", old)
+
+    async def test_too_large_is_never_sent_nor_queued(self):
+        self.limit(3)   # i file di prova pesano 4 byte
+        self.assertTrue(storage.too_large(self.f))
+        with self.assertRaises(storage.TooLarge):
+            await storage.send_file(self.bot, self.settings, 42, self.f, caption="c")
+        self.assertEqual(self.bot.sent, [])
+        self.assertEqual(storage._priority, {})
+
+    async def test_background_skips_files_over_the_limit(self):
+        self.conn.execute("UPDATE nodes SET size = 100 WHERE id = 2")   # g troppo grande
+        self.conn.execute("UPDATE nodes SET size = 4 WHERE id = 1")
+        self.conn.commit()
+        self.limit(50)
+        await storage.resume_background_upload(self.bot, self.settings)
+        uploaded = [str(getattr(s[1], "path", "")) for s in self.bot.sent if s[0] == CHANNEL]
+        self.assertEqual(len(uploaded), 1)
+        self.assertTrue(uploaded[0].endswith("f.pdf"))
+
     async def test_concurrent_ensure_uploaded_uploads_once(self):
         self.bot.upload_delay = 0.05
         blobs = await asyncio.gather(*(storage.ensure_uploaded(self.bot, self.settings, self.f) for _ in range(5)))

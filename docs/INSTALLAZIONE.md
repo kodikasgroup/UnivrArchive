@@ -11,9 +11,21 @@ che va preparato su Telegram è in [`REQUISITI.md`](REQUISITI.md).
 | Container | Cosa fa |
 |---|---|
 | `bot` | il bot (Python 3.14, aiogram 3.31) |
-| `telegram-bot-api` | server Bot API locale: file fino a 2 GB (il server cloud si ferma a 50 MB) |
-| `bot-api-cleaner` | cancella dopo 24 ore i file scaricati dal server Bot API |
-| `bot-beta` | bot di test, solo con `--profile beta` |
+| `telegram-bot-api` | **opzionale** (profilo `local-api`): server Bot API locale, file fino a 2 GB |
+| `bot-api-cleaner` | **opzionale** (profilo `local-api`): cancella dopo 24 ore i file scaricati dal server locale |
+| `bot-beta` | bot di test, solo con il profilo `beta` |
+
+### Server di Telegram o server locale
+
+| | Server di Telegram (default) | Server locale (`COMPOSE_PROFILES=local-api`) |
+|---|---|---|
+| File che il bot invia | fino a 50 MB; quelli più grandi restano visibili con 📦 ma non si scaricano | fino a 2 GB |
+| File che gli utenti inviano | fino a 20 MB | fino a `SUBMIT_MAX_MB` (default 200) |
+| Serve | niente | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH` (da my.telegram.org) e un `logOut` una tantum |
+
+Si sceglie solo dal `.env`: con `COMPOSE_PROFILES=local-api` partono anche i due
+container opzionali e il bot usa il server locale; vuoto, il bot usa quello di
+Telegram. Per bot di test e server locale insieme: `COMPOSE_PROFILES=local-api,beta`.
 
 Tutti i dati stanno nella cartella del progetto:
 
@@ -91,8 +103,10 @@ rsync -a /percorso/materiale/ data/prod/archive/   # -a conserva le date dei fil
 cp assets/welcome.mp4 data/prod/media/            # animazione di /start (opzionale)
 ```
 
-**Una sola volta per ogni token**, prima del primo avvio: scollegare il bot dal
-server cloud di Telegram, altrimenti il server locale non riceve gli update.
+**Solo con il server locale** (`COMPOSE_PROFILES=local-api`), una volta per ogni
+token, prima del primo avvio: scollegare il bot dal server di Telegram,
+altrimenti il server locale non riceve gli update. Con il server di Telegram
+**non va fatto**.
 
 ```bash
 curl "https://api.telegram.org/bot<TOKEN>/logOut"
@@ -123,7 +137,7 @@ Token, canali e dati separati da produzione (`BETA_*` nel `.env`, cartella
 
 ```bash
 rsync -a data/prod/archive/ data/beta/archive/     # opzionale: archivio vero per le prove
-curl "https://api.telegram.org/bot<TOKEN_BETA>/logOut"
+# solo con il server locale: curl "https://api.telegram.org/bot<TOKEN_BETA>/logOut"
 docker compose --profile beta up -d --build
 docker compose logs -f bot-beta
 ```
@@ -209,7 +223,8 @@ nelle tabelle crediti/download, e si può rilanciare senza duplicare nulla.
 1. Avvisare gli utenti con il vecchio bot ("manutenzione di 30 minuti").
 2. Fermare il vecchio bot.
 3. Copia **finale** del vecchio DB e migrazione verso `data/prod/bot.db`.
-4. `logOut` del token (§2). Da qui il vecchio bot non può ripartire per 10 minuti.
+4. Solo con il server locale: `logOut` del token (§2). Da qui il vecchio bot non
+   può ripartire per 10 minuti.
 5. `docker compose up -d`, poi `/reindex` → ✅ Applica.
 6. Prova veloce: navigazione, un download, un acquisto, un invio.
 
@@ -226,6 +241,8 @@ successo nel frattempo sul nuovo bot va riportato a mano.
 | `required variable … is missing` all'avvio | `.env` incompleto | compilare la variabile indicata |
 | Il bot non risponde, nessun errore | manca `logOut` del token, o un altro processo usa lo stesso token | `logOut` (§2), fermare l'altro processo |
 | "Configurazione incompleta, mancano: …" nei log | variabile vuota (spesso il beta senza `BETA_*`) | compilare o non avviare il beta |
-| File sopra 50 MB non partono | server Bot API locale non raggiungibile | `docker compose ps`, `docker compose logs telegram-bot-api` |
+| File con 📦, "troppo grande" | si usa il server di Telegram (limite 50 MB) | attivare il server locale (§1): `COMPOSE_PROFILES=local-api` + chiavi API, `logOut`, riavvio, `/reindex` |
+| File sopra 50 MB non partono con il server locale attivo | server Bot API locale non raggiungibile | `docker compose ps`, `docker compose logs telegram-bot-api` |
+| Si torna dal server locale a quello di Telegram | il token è "agganciato" al server locale | togliere `local-api` da `COMPOSE_PROFILES`, `logOut` del token **sul server locale** prima di fermarlo, attendere 10 minuti, riavviare |
 | Errori ripetuti | — | arrivano in `LOG_CHAT_ID` se impostato, sempre in `docker compose logs bot` |
 | `data/bot-api/` appartiene all'utente 101 | è il server Bot API | normale, non cambiarlo |

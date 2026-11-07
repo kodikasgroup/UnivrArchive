@@ -171,12 +171,15 @@ _TO_UPLOAD = (
 )
 
 
-def blobs_to_upload() -> list[tuple[str, str]]:
-    """(sha256, path) di un nodo attivo per ogni blob non ancora nel canale."""
+def blobs_to_upload(max_size: int | None = None) -> list[tuple[str, str]]:
+    """(sha256, path) di un nodo attivo per ogni blob non ancora nel canale.
+    `max_size`: salta i file più grandi (il server Bot API in uso non li accetta)."""
+    size_filter, args = ("AND n.size <= ?", (max_size,)) if max_size is not None else ("", ())
     return db.conn.execute(
-        f"SELECT b.sha256, MIN(n.path) {_TO_UPLOAD} GROUP BY b.sha256 ORDER BY MIN(n.id)"
+        f"SELECT b.sha256, MIN(n.path) {_TO_UPLOAD} {size_filter} GROUP BY b.sha256 ORDER BY MIN(n.id)", args
     ).fetchall()
 
 
-def count_to_upload() -> int:
-    return db.conn.execute(f"SELECT COUNT(DISTINCT b.sha256) {_TO_UPLOAD}").fetchone()[0]
+def count_to_upload(max_size: int | None = None) -> int:
+    size_filter, args = ("AND n.size <= ?", (max_size,)) if max_size is not None else ("", ())
+    return db.conn.execute(f"SELECT COUNT(DISTINCT b.sha256) {_TO_UPLOAD} {size_filter}", args).fetchone()[0]

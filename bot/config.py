@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REQUIRED = ("BOT_TOKEN", "ADMIN_IDS", "STAFF_CHAT_ID", "STORAGE_CHAT_ID")
+LOCAL_API_PROFILE = "local-api"  # profilo compose che avvia il server Bot API locale
 
 
 @dataclass(frozen=True)
@@ -21,6 +22,16 @@ class Settings:
     donation_link: str = ""
     rich_messages: bool = False
     log_level: str = "INFO"
+    local_api: bool = False   # server Bot API locale attivo (COMPOSE_PROFILES contiene "local-api")
+
+    # limiti di Telegram: server di Telegram 50 MB in invio / 20 MB in download, locale 2 GB
+    @property
+    def max_send_bytes(self) -> int:
+        return (2000 if self.local_api else 50) * 1024 * 1024
+
+    @property
+    def max_download_bytes(self) -> int:
+        return (2000 if self.local_api else 20) * 1024 * 1024
 
     # percorsi derivati: un solo valore da configurare (DATA_DIR)
     @property
@@ -92,4 +103,5 @@ def load() -> Settings:
         donation_link=(env.get("DONATION_LINK") or "").strip(),
         rich_messages=(env.get("RICH_MESSAGES") or "").strip() == "1",
         log_level=(env.get("LOG_LEVEL") or "INFO").strip().upper(),
+        local_api=LOCAL_API_PROFILE in [p.strip() for p in (env.get("COMPOSE_PROFILES") or "").split(",")],
     )

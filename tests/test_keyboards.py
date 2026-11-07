@@ -242,5 +242,33 @@ class KeyboardTests(unittest.TestCase):
                          ["n:100008", "n:100004", "n:0"])
 
 
+
+class TooLargeTests(unittest.TestCase):
+    """Server di Telegram: i file oltre il limite restano visibili con 📦."""
+
+    def setUp(self):
+        from bot import storage
+        keyboards.set_bot_username("testbot")
+        archive.tree = sup.make_tree(sample_specs(), old=True)
+        self.storage = storage
+        old = storage.MAX_SEND_BYTES
+        storage.MAX_SEND_BYTES = 1_000_000          # il file da 1,2 MB è troppo grande
+        self.addCleanup(setattr, storage, "MAX_SEND_BYTES", old)
+
+    def labels(self, node_id):
+        _, kb = keyboards.folder(node_id)
+        return [b.text for row in kb.inline_keyboard for b in row]
+
+    def test_oversized_file_visible_with_box_icon(self):
+        labels = self.labels(100006)
+        big = [l for l in labels if LONG[:10].replace("_", " ") in l]
+        self.assertTrue(big and big[0].startswith("📦"), labels)
+        self.assertTrue(any(l.startswith("📖Formulario") for l in self.labels(100004)))
+
+    def test_download_all_hidden_when_only_oversized(self):
+        self.assertNotIn(T.BTN_ALL, self.labels(100006))   # unico file: troppo grande
+        self.assertIn(T.BTN_ALL, self.labels(100004))      # Formulario.pdf è piccolo
+
+
 if __name__ == "__main__":
     unittest.main()
