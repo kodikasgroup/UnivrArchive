@@ -1,4 +1,4 @@
-"""Ticket: feedback, segnalazioni, richieste di rimozione (ARCHITETTURA §12.3)."""
+"""Ticket: feedback, segnalazioni, richieste di rimozione."""
 
 import logging
 import re

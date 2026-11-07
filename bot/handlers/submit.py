@@ -1,4 +1,4 @@
-"""Invii degli utenti e moderazione nel gruppo staff (ARCHITETTURA §11)."""
+"""Invii degli utenti e moderazione nel gruppo staff."""
 
 import asyncio
 import hashlib
@@ -39,7 +39,7 @@ PARTY_EFFECT = "5046509860389126442"   # effetto messaggio 🎉
 PRICE_CHOICES = (5, 10, 20)
 
 
-# --- nomi e percorsi (sicurezza, §11.4) ------------------------------------
+# --- nomi e percorsi (sicurezza: file da sconosciuti) ------------------------------------
 
 def sanitize_filename(name: str | None, fallback_ext: str = "") -> str:
     """Nome sicuro da scrivere su disco: mai separatori, '..', caratteri di

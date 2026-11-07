@@ -71,7 +71,7 @@ async def main() -> None:
         d.mkdir(parents=True, exist_ok=True)
     db.init(settings.db_path)
 
-    # import tardivi: dipendono dal DB aperto e dagli altri task
+    # import tardivi: dipendono dal DB aperto e dagli altri moduli
     from bot import archive, jobs, storage
     archive.load_from_db()
 

@@ -1,6 +1,6 @@
 import unittest
 
-from tests import t3_support as sup
+from tests import support_browse as sup
 
 from bot import archive
 from bot.handlers import browse, files

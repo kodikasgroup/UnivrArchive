@@ -1,4 +1,4 @@
-"""Invii utenti (submissions) e ticket. Tutto l'SQL di T4 sta qui."""
+"""Invii utenti (submissions) e ticket. Tutto il loro SQL sta qui."""
 
 from dataclasses import dataclass
 
@@ -212,7 +212,7 @@ def reject(sub_id: int, admin_id: int) -> bool:
     return cur.rowcount == 1
 
 
-# --- letti da T5 -----------------------------------------------------------
+# --- letti da admin e job notturno -----------------------------------------------------------
 
 def count_pending() -> int:
     """Invii in attesa di moderazione (già presentati allo staff)."""

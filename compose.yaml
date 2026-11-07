@@ -25,7 +25,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     volumes:
       - ./data/prod:/data
-      - ./data/bot-api:/var/lib/telegram-bot-api:ro   # file scaricati dal server locale (§11.2)
+      - ./data/bot-api:/var/lib/telegram-bot-api:ro   # file scaricati dal server locale (invii utenti)
 
   bot-beta:                                    # solo con: docker compose --profile beta up -d
     <<: *bot
@@ -58,7 +58,7 @@ services:
     # nessuna porta pubblicata: lo raggiungono solo i bot, sulla rete interna di compose
 
   bot-api-cleaner:                             # cancella i file scaricati dal server dopo 1 giorno
-    image: alpine:3.24.4                       # (il bot li ha già copiati in inbox/, §11.2)
+    image: alpine:3.24.4                       # (il bot li ha già copiati in inbox/)
     user: "101:101"                            # stesso utente del server Bot API: solo lui può cancellare i suoi file;
                                                # i bot montano data/bot-api in sola lettura
     volumes:

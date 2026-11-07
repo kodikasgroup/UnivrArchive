@@ -1,4 +1,4 @@
-"""Tastiere e testi dei menu di navigazione (contratto §8)."""
+"""Tastiere e testi dei menu di navigazione."""
 
 import math
 from typing import Literal

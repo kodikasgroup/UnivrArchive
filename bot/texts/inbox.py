@@ -1,4 +1,4 @@
-"""Testi di T4: invii, moderazione, Gestisci, ticket (HTML)."""
+"""Testi di invii, moderazione, Gestisci, ticket (HTML)."""
 
 from html import escape
 

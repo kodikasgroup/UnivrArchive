@@ -1,7 +1,7 @@
 # Guida per gli admin
 
 Tutto quello che serve allo staff per gestire UniVrArchive **da Telegram**,
-senza toccare il server. Per i diagrammi vedi [`FLUSSI.md`](FLUSSI.md).
+senza toccare il server. Per installazione e backup vedi [`INSTALLAZIONE.md`](INSTALLAZIONE.md).
 
 Sei admin se il tuo ID Telegram è in `ADMIN_IDS` (nel `.env`). Nessuna password:
 i comandi admin compaiono nel tuo menu `/` e per gli altri non esistono.
@@ -193,4 +193,4 @@ Un gruppo non collegato viene ignorato. `/scollega` per togliere.
 | Il bot non risponde | `docker compose ps`, `docker compose logs -f bot` sul Pi |
 | Un file non si scarica | ⚠️ Segnala da utente arriva in staff; prova `/reindex` |
 | Errori ripetuti | arrivano in `LOG_CHAT_ID` con il dettaglio |
-| DB rovinato | ripristino dal backup notturno: procedura in [`ARCHITETTURA.md` §15](ARCHITETTURA.md#15-logging-backup-monitoraggio) |
+| DB rovinato | ripristino dal backup notturno: procedura in [`INSTALLAZIONE.md` §6](INSTALLAZIONE.md#6-ripristinare-il-database) |

@@ -1,4 +1,4 @@
-"""Supporto ai test di T3: stub dei moduli di altri task (se non esistono ancora),
+"""Supporto ai test di navigazione: stub dei moduli mancanti (se non presenti),
 albero finto e schema DB minimo. Importare PRIMA di `bot.keyboards` / `bot.handlers.*`."""
 
 import dataclasses
@@ -64,7 +64,7 @@ NOW = datetime.now(UTC).replace(tzinfo=None)
 
 
 class FakeTree:
-    """Albero in memoria con la stessa interfaccia di `archive.Tree` (contratto §5)."""
+    """Albero in memoria con la stessa interfaccia di `archive.Tree` (stessa interfaccia pubblica)."""
 
     def __init__(self, nodes, version=1):
         self.version = version
@@ -150,7 +150,7 @@ CREATE TABLE group_folders (chat_id INTEGER PRIMARY KEY, node_id INTEGER NOT NUL
 
 
 def open_db() -> sqlite3.Connection:
-    """DB in memoria con le tabelle usate da T3, assegnato a `bot.db.conn`."""
+    """DB in memoria con le tabelle usate dai test di navigazione, assegnato a `bot.db.conn`."""
     conn = sqlite3.connect(":memory:")
     conn.executescript(SCHEMA)
     db.conn = conn

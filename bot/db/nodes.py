@@ -1,4 +1,4 @@
-"""SQL dell'archivio: tabelle `nodes` e `blobs` (schema creato da T1)."""
+"""SQL dell'archivio: tabelle `nodes` e `blobs` (lo schema lo crea bot.db)."""
 from __future__ import annotations
 
 import contextlib

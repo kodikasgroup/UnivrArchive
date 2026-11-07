@@ -1,4 +1,4 @@
-"""⚙️ Gestisci: riorganizzare l'archivio da Telegram (ARCHITETTURA §11.3).
+"""⚙️ Gestisci: riorganizzare l'archivio da Telegram.
 
 Tutto avviene solo su disco, sotto archive_dir. Gli utenti vedono le modifiche
 dopo /reindex.

@@ -240,7 +240,7 @@ async def open_file(bot: Bot, settings: Settings, user: User, node: archive.Node
     result = await deliver(bot, settings, user.id, node)
     if not in_group:
         return
-    # dal gruppo: conferma con un toast (§9.9), oppure "aprimi in privato"
+    # dal gruppo: conferma con un toast, oppure "aprimi in privato"
     await _answer_quietly(q, T.SENT_PRIVATE if result == "ok" else None)
     if result == "forbidden":
         await group_hint(bot, q, node)
@@ -331,7 +331,7 @@ async def on_report(q: CallbackQuery, bot: Bot, settings: Settings) -> None:
         if now - _reported.get(key, -REPORT_COOLDOWN) < REPORT_COOLDOWN:
             await q.answer(T.REPORT_ALREADY)
         else:
-            from bot.handlers import tickets  # T4: import tardivo, evita cicli
+            from bot.handlers import tickets  # import tardivo, evita cicli
             _remember_report(key, now)
             try:
                 await tickets.open_ticket(bot, settings, q.from_user, "report",

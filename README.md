@@ -70,10 +70,9 @@ I segreti stanno solo in `.env` (ignorato).
 | Documento | Per chi | Contenuto |
 |---|---|---|
 | [`docs/REQUISITI.md`](docs/REQUISITI.md) | chi installa | bot, canali, credenziali, hardware da preparare |
+| [`docs/INSTALLAZIONE.md`](docs/INSTALLAZIONE.md) | chi gestisce il server | installazione, aggiornamenti, backup, ripristino, passaggio dalla v1 |
 | [`docs/GUIDA_ADMIN.md`](docs/GUIDA_ADMIN.md) | staff | comandi, moderazione, reindex, prezzi, ticket |
-| [`docs/FLUSSI.md`](docs/FLUSSI.md) | tutti | come funziona, con diagrammi |
-| [`docs/ARCHITETTURA.md`](docs/ARCHITETTURA.md) | sviluppatori | scelte tecniche, schema DB, deploy, migrazione |
-| [`docs/FUTURO_MINI_APP.md`](docs/FUTURO_MINI_APP.md) | — | idea rimandata dopo la v1 |
+| [`docs/SVILUPPO.md`](docs/SVILUPPO.md) | sviluppatori | struttura del codice, regole, test, versioni, rilascio |
 
 ## Sviluppo
 
@@ -82,9 +81,7 @@ python3.14 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m unittest
 ```
 
-Regole: tutto l'SQL in `bot/db/`, tutti i testi in `bot/texts/`, una sola
-dipendenza diretta (`aiogram`), versioni fissate (tabella in
-[`ARCHITETTURA.md` §4.1](docs/ARCHITETTURA.md#41-versioni-tutte-le-più-recenti-verificate-il-6-novembre-2026)).
+Regole e versioni in [`docs/SVILUPPO.md`](docs/SVILUPPO.md).
 
 ## Privacy e materiale
 

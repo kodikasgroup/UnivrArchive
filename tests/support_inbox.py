@@ -1,4 +1,4 @@
-"""Supporto ai test di T4: stub dei moduli di altri task (se non ancora presenti),
+"""Supporto ai test di invii e staff: stub dei moduli mancanti (se non presenti),
 DB temporaneo, bot finto che registra le chiamate (nessuna rete)."""
 
 import importlib

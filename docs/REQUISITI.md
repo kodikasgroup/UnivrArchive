@@ -4,7 +4,7 @@ Checklist di tutto quello che serve **fuori dal codice**: bot, canali,
 credenziali, hardware. Da fare una volta per il bot di produzione e,
 se serve, una volta per il bot beta.
 
-> Versioni software di riferimento: [`ARCHITETTURA.md` §4.1](ARCHITETTURA.md#41-versioni-tutte-le-più-recenti-verificate-il-6-novembre-2026).
+> Installazione vera e propria: [`INSTALLAZIONE.md`](INSTALLAZIONE.md). Versioni del software: [`SVILUPPO.md`](SVILUPPO.md#versioni).
 
 ---
 
@@ -47,7 +47,7 @@ all'avvio (`setMyCommands`).
 Il **bot di produzione usa lo stesso token del bot attuale**, così gli utenti
 non devono cambiare nulla. Prima del primo avvio con il server Bot API locale
 serve un `logOut` una tantum (procedura in
-[`ARCHITETTURA.md` §17 passo 9](ARCHITETTURA.md#17-piano-di-migrazione)).
+[`INSTALLAZIONE.md` §2 e §7](INSTALLAZIONE.md#2-prima-installazione)).
 
 **Token:** se un token è mai finito in un commit, rigenerarlo con `/revoke`.
 

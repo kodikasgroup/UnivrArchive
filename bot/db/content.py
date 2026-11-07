@@ -25,7 +25,7 @@ def _tx() -> Iterator[sqlite3.Connection]:
 
 
 def buy(user_id: int, node_id: int, price: int) -> bool:
-    """Acquisto atomico (§10.2). `price` è quello letto dall'albero adesso.
+    """Acquisto atomico. `price` è quello letto dall'albero adesso.
     True se acquistato ora o già posseduto (nessun doppio addebito)."""
     with _tx() as conn:
         if conn.execute("SELECT 1 FROM purchases WHERE user_id=? AND node_id=?",

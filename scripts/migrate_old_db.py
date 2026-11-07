@@ -1,4 +1,4 @@
-"""Migra utenti, crediti, VIP e download dal vecchio DB (v1) al nuovo (ARCHITETTURA §17 passo 4).
+"""Migra utenti, crediti, VIP e download dal vecchio DB (v1) al nuovo.
 
     python -m scripts.migrate_old_db <vecchio.db> <nuovo.db> [--dry-run]
 
@@ -35,7 +35,7 @@ def summary() -> dict[str, int]:
 
 
 def _copy_users(old: sqlite3.Connection) -> None:
-    """SQL di §17, con lettura dal vecchio DB tramite una connessione separata read-only."""
+    """SQL di migrazione, con lettura dal vecchio DB tramite una connessione separata read-only."""
     users = old.execute("SELECT chat_id, username, f_name, state FROM User ORDER BY rowid").fetchall()
     reserved = old.execute("SELECT chat_id, MAX(Credit), MAX(Vip) FROM Reserved GROUP BY chat_id").fetchall()
     downloads = old.execute("SELECT chat_id, SUM(n_download) FROM Download GROUP BY chat_id").fetchall()
