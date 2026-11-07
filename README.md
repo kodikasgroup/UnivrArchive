@@ -71,6 +71,7 @@ I segreti stanno solo in `.env` (ignorato).
 |---|---|---|
 | [`docs/REQUISITI.md`](docs/REQUISITI.md) | chi installa | bot, canali, credenziali, hardware da preparare |
 | [`docs/INSTALLAZIONE.md`](docs/INSTALLAZIONE.md) | chi gestisce il server | installazione, aggiornamenti, backup, ripristino, passaggio dalla v1 |
+| [`docs/FLUSSI.md`](docs/FLUSSI.md) | tutti | come funziona il bot, con diagrammi |
 | [`docs/GUIDA_ADMIN.md`](docs/GUIDA_ADMIN.md) | staff | comandi, moderazione, reindex, prezzi, ticket |
 | [`docs/SVILUPPO.md`](docs/SVILUPPO.md) | sviluppatori | struttura del codice, regole, test, versioni, rilascio |
 

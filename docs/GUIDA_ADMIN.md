@@ -1,7 +1,7 @@
 # Guida per gli admin
 
 Tutto quello che serve allo staff per gestire UniVrArchive **da Telegram**,
-senza toccare il server. Per installazione e backup vedi [`INSTALLAZIONE.md`](INSTALLAZIONE.md).
+senza toccare il server. Per i diagrammi vedi [`FLUSSI.md`](FLUSSI.md), per installazione e backup [`INSTALLAZIONE.md`](INSTALLAZIONE.md).
 
 Sei admin se il tuo ID Telegram è in `ADMIN_IDS` (nel `.env`). Nessuna password:
 i comandi admin compaiono nel tuo menu `/` e per gli altri non esistono.
