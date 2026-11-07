@@ -35,7 +35,7 @@ La configurazione sta solo in `.env`.
 | `prod/bot.db` | database: utenti, crediti, acquisti, indice dei file, invii, ticket | il bot | **sì** (più le copie in `backups/`) |
 | `prod/inbox/` | file inviati dagli utenti in attesa di moderazione. Approvati → spostati in `archive/`; rifiutati → cancellati dopo 30 giorni | il bot | sì |
 | `prod/trash/` | file eliminati con 🗑 da ⚙️ Gestisci, in `trash/<data>/`. Cancellati dopo 30 giorni | il bot | sì |
-| `prod/media/` | `welcome.mp4`, l'animazione di `/start` (caricata su Telegram all'avvio del bot) | chi installa | sì |
+| `prod/media/` | `welcome.mp4` (o `welcome.gif`), l'animazione di `/start`, caricata su Telegram all'avvio del bot. Altri file qui vengono ignorati. Il default è in [`assets/`](../assets/README.md) | chi installa | sì |
 | `prod/backups/` | copie notturne del database, le ultime 14 | il bot | sì |
 | `bot-api/` | cartella di lavoro del server Bot API locale (vedi sotto) | il server Bot API | **no** |
 
@@ -88,7 +88,7 @@ Materiale e media:
 
 ```bash
 rsync -a /percorso/materiale/ data/prod/archive/   # -a conserva le date dei file
-cp /percorso/welcome.mp4 data/prod/media/          # opzionale: animazione di /start
+cp assets/welcome.mp4 data/prod/media/            # animazione di /start (opzionale)
 ```
 
 **Una sola volta per ogni token**, prima del primo avvio: scollegare il bot dal

@@ -140,12 +140,12 @@ def _common_text(name: str, fallback: str, settings: Settings) -> str:
 
 
 def _welcome_file(settings: Settings) -> Path | None:
+    """Solo `welcome.*` (mp4, gif…): gli altri file di media/ (es. l'avatar) non sono il benvenuto."""
     media = Path(settings.media_dir)
     if not media.is_dir():
         return None
-    candidates = sorted(p for p in media.iterdir() if p.is_file() and not p.name.startswith("."))
-    preferred = [p for p in candidates if p.stem.lower() == "welcome"]
-    return (preferred or candidates or [None])[0]
+    found = sorted(p for p in media.iterdir() if p.is_file() and p.stem.lower() == "welcome")
+    return found[0] if found else None
 
 
 async def prepare_welcome(bot: Bot, settings: Settings) -> None:

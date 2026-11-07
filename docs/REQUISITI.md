@@ -38,7 +38,7 @@ Per **ogni** bot (prod, ed eventualmente beta):
 | `/setjoingroups` | `Enable` | il bot deve entrare nei gruppi dei corsi |
 | `/setprivacy` | `Enable` (default) | nei gruppi il bot riceve solo i comandi, non tutti i messaggi |
 | `/setdescription`, `/setabouttext` | testo breve | mostrato a chi apre il bot la prima volta |
-| `/setuserpic` | logo | |
+| `/setuserpic` | `assets/brand/avatar-640.jpg` | già pensato per il ritaglio circolare di Telegram |
 | Privacy policy (Bot Settings) | testo di `/privacy` | richiesto da Telegram per i bot che salvano dati |
 
 **Non** serve impostare i comandi a mano: il bot li registra da solo
@@ -171,6 +171,7 @@ Nei gruppi non collegati il bot non risponde.
 - [ ] `api_id` / `api_hash` da my.telegram.org
 - [ ] `.env` compilato da `.env.example`
 - [ ] SSD montato, progetto clonato sull'SSD, `data/prod/archive/` copiato con `rsync -a`
-- [ ] (opzionale) animazione di benvenuto in `data/prod/media/welcome.mp4`
+- [ ] (opzionale) animazione di benvenuto: `cp assets/welcome.mp4 data/prod/media/`
+- [ ] foto profilo del bot: `assets/brand/avatar-640.jpg` con `/setuserpic`
 - [ ] Docker e Compose installati
 - [ ] `logOut` del token fatto (solo al momento del passaggio, §17 passo 9)

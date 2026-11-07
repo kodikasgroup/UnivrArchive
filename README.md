@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/brand/logo@2x.png" alt="UniVr Archive" width="480"></p>
+
 # UniVrArchive
 
 Bot Telegram che distribuisce il materiale di studio dell'Università di Verona,
@@ -31,7 +33,7 @@ Tutti i passaggi in [`docs/REQUISITI.md`](docs/REQUISITI.md).
 git clone https://github.com/kodikasgroup/UnivrArchive.git && cd UnivrArchive
 cp .env.example .env                  # compilare: token, admin, chat, api_id/hash
 rsync -a /percorso/materiale/ data/prod/archive/   # -a conserva le date
-cp /percorso/welcome.mp4 data/prod/media/          # opzionale: animazione di /start
+cp assets/welcome.mp4 data/prod/media/            # animazione di /start (opzionale)
 docker compose up -d --build
 docker compose logs -f bot
 ```
@@ -54,6 +56,7 @@ bot/                codice del bot
 tests/              test (python -m unittest)
 scripts/            migrazione una tantum dal database della v1
 docs/               documentazione
+assets/             logo, avatar, animazione di benvenuto (vedi assets/README.md)
 data/               dati locali — solo la struttura è su git
 ├── prod/           archive/ inbox/ trash/ media/ backups/ + bot.db
 ├── beta/           stessa struttura, per il bot di test

@@ -291,6 +291,17 @@ class NoDiskInUserPathTests(unittest.IsolatedAsyncioTestCase):
         self.bot.send_animation.assert_not_awaited()
         self.bot.send_message.assert_awaited_once()
 
+    def test_welcome_file_ignores_other_media(self):
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        media = Path(tempfile.mkdtemp())
+        (media / "avatar.jpeg").write_bytes(b"x")          # la foto profilo non è il benvenuto
+        settings = SimpleNamespace(media_dir=media)
+        self.assertIsNone(browse._welcome_file(settings))
+        (media / "welcome.mp4").write_bytes(b"x")
+        self.assertEqual(browse._welcome_file(settings).name, "welcome.mp4")
+
     async def test_prepare_welcome_uploads_to_storage_channel_once(self):
         import tempfile
         from pathlib import Path
