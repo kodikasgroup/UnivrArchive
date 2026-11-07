@@ -82,7 +82,7 @@ class StorageTest(unittest.IsolatedAsyncioTestCase):
         db.conn = self.conn
         self.addCleanup(self.conn.close)
         storage._locks.clear()
-        storage._refresh_tried.clear()
+        storage._priority.clear()
         storage._background = None
         storage.UPLOAD_INTERVAL = 0
         self.bot = FakeBot()
@@ -116,12 +116,41 @@ class StorageTest(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.bot.forwarded)
         self.assertEqual(self.bot.copied, [])
 
-    async def test_send_file_uploads_when_missing(self):
-        await storage.send_file(self.bot, self.settings, 42, self.f, caption="c", message_effect_id="eff")
+    def count_disk_reads(self):
+        reads = []
+        real = storage._disk_file
+
+        def spy(settings, path):
+            reads.append(path)
+            return real(settings, path)
+        storage._disk_file = spy
+        self.addCleanup(setattr, storage, "_disk_file", real)
+        return reads
+
+    async def test_send_file_missing_never_reads_disk_and_delivers_from_queue(self):
+        reads = self.count_disk_reads()
+        delivered = []
+        with self.assertRaises(storage.NotReady):
+            await storage.send_file(self.bot, self.settings, 42, self.f, caption="c",
+                                    message_effect_id="eff", on_sent=lambda: delivered.append(1))
+        # il click è finito: niente disco, niente invii
+        self.assertEqual(reads, [])
+        self.assertEqual(self.bot.sent, [])
+        await storage._background  # il task in background carica e consegna
+        self.assertEqual(reads[0], "A/f.pdf")  # prima il file richiesto (poi l'arretrato)
         self.assertEqual(self.bot.sent[0][0], CHANNEL)
         self.assertEqual(self.bot.sent[1][0], 42)
         self.assertEqual(self.bot.sent[1][2]["message_effect_id"], "eff")
+        self.assertEqual(delivered, [1])
         self.assertFalse(self.bot.forwarded)
+
+    async def test_priority_request_goes_before_background_backlog(self):
+        storage.resume_background_upload(self.bot, self.settings)  # backlog: f e g
+        with self.assertRaises(storage.NotReady):
+            await storage.send_file(self.bot, self.settings, 42, self.g, caption="c")
+        await storage._background
+        channel = [s for s in self.bot.sent if s[0] == CHANNEL]
+        self.assertTrue(str(channel[0][1].path).endswith("g.pdf"))  # g prima di f
 
     async def test_invalid_file_id_falls_back_to_copy_with_our_caption(self):
         nodes.set_storage(self.f.sha256, "OLD", "U", 77)
@@ -137,10 +166,15 @@ class StorageTest(unittest.IsolatedAsyncioTestCase):
     async def test_invalid_file_id_without_channel_copy_reuploads(self):
         nodes.set_file_id(self.f.sha256, "OLD", "U")
         self.bot.bad_ids.add("OLD")
-        await storage.send_file(self.bot, self.settings, 42, self.f, caption="c")
+        reads = self.count_disk_reads()
+        with self.assertRaises(storage.NotReady):
+            await storage.send_file(self.bot, self.settings, 42, self.f, caption="c")
+        self.assertEqual(reads, [])
+        await storage._background
         self.assertEqual(self.bot.copied, [])
-        self.assertEqual(self.bot.sent[-1][0], 42)
-        self.assertNotEqual(self.bot.sent[-1][1], "OLD")
+        to_user = [s for s in self.bot.sent if s[0] == 42]
+        self.assertEqual(to_user[-1][1], nodes.get_blob(self.f.sha256).file_id)
+        self.assertNotEqual(to_user[-1][1], "OLD")
 
     async def test_remember_file_id_then_background_posts_without_disk(self):
         (self.tmp / "A" / "f.pdf").unlink()  # il disco non serve
@@ -196,8 +230,14 @@ class StorageTest(unittest.IsolatedAsyncioTestCase):
         nodes.set_file_id(self.f.sha256, "OLD", "U")
         self.bot.bad_ids.add("OLD")
         self.bot.upload_delay = 0.02
-        await asyncio.gather(*(storage.send_file(self.bot, self.settings, 42, self.f, caption="c") for _ in range(2)))
-        self.assertEqual(len([s for s in self.bot.sent if s[0] == CHANNEL]), 1)
+        results = await asyncio.gather(
+            *(storage.send_file(self.bot, self.settings, 42, self.f, caption="c") for _ in range(2)),
+            return_exceptions=True)
+        self.assertTrue(all(isinstance(r, storage.NotReady) for r in results))
+        await storage._background
+        f_uploads = [s for s in self.bot.sent if s[0] == CHANNEL and str(getattr(s[1], "path", "")).endswith("f.pdf")]
+        self.assertEqual(len(f_uploads), 1)
+        self.assertEqual(len([s for s in self.bot.sent if s[0] == 42 and s[1] != "OLD"]), 2)
 
     async def test_missing_file_id_recovered_by_copy_without_disk(self):
         from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup

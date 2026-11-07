@@ -157,6 +157,8 @@ SEND_ERROR = ("😞 Non sono riuscito a inviarti il file. Riprova tra poco: se l
 OPEN_PRIVATE = "Questo file te lo mando in privato: aprimi e riprova."
 OPEN_PRIVATE_BUTTON = "📩 Apri in privato"
 SENT_PRIVATE = "📬 Te l'ho mandato in privato"
+PREPARING = "⏳ Questo file è appena arrivato nell'archivio: lo sto preparando e te lo mando appena è pronto."
+QUEUED_PRIVATE = "⏳ Te lo mando in privato appena è pronto"
 
 # --- azioni sui file ----------------------------------------------------------
 
@@ -193,6 +195,10 @@ def all_confirm(count: int, total: int) -> str:
 
 def all_progress(done: int, total: int) -> str:
     return f"📥 {done}/{total}…"
+
+
+def all_queued(count: int) -> str:
+    return f"\n⏳ {count} file in preparazione: arriveranno da soli appena pronti."
 
 
 def all_done(done: int, total: int) -> str:

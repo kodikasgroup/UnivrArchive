@@ -67,12 +67,22 @@ sequenceDiagram
     B->>DB: file_id per sha256
     alt file_id presente
         B->>T: sendDocument(file_id)
-    else non ancora caricato
+        B->>DB: download registrato
+    else non ancora nel canale storage
+        B->>U: "⏳ lo sto preparando, te lo mando appena pronto"
+        Note over B: il file passa in testa al caricamento<br/>in background (l'unico che legge il disco)
         B->>T: carica nel canale storage (una volta)
-        B->>T: sendDocument(file_id)
+        B->>T: sendDocument(file_id) all'utente
+        B->>DB: download registrato
     end
-    B->>DB: download registrato
 ```
+
+**Il percorso utente non legge mai il disco:** navigazione, ricerca e invii
+usano solo l'indice (database, caricato in memoria) e i `file_id` di Telegram.
+Il disco lo leggono solo `/reindex` e il caricamento in background nel canale
+storage. Un file appena pubblicato e non ancora caricato passa in testa alla
+coda e arriva da solo appena pronto (succede soprattutto nelle ore dopo il
+primo `/reindex`).
 
 Sotto ogni file: **📤 Condividi** (via inline), **🔗 Copia link**,
 **⭐ Salva** nei preferiti, **⚠️ Segnala**.

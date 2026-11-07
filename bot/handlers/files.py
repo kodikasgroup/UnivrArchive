@@ -182,7 +182,8 @@ def owns(user_id: int, node: archive.Node) -> bool:
 async def deliver(bot: Bot, settings: Settings, user_id: int, node: archive.Node, *,
                   effect: str | None = None) -> str:
     """Invia il file in privato a `user_id` e conta il download.
-    Ritorna "ok", "forbidden" (l'utente non ha avviato il bot) o "error"."""
+    Ritorna "ok", "queued" (file in preparazione: partirà da solo appena pronto),
+    "forbidden" (l'utente non ha avviato il bot) o "error"."""
     await ensure_username(bot)
     paid = node.price > 0
     caption = T.file_caption(node.name, node_crumb(node), node.size, node.added_at,
@@ -190,7 +191,16 @@ async def deliver(bot: Bot, settings: Settings, user_id: int, node: archive.Node
     try:
         await storage.send_file(bot, settings, user_id, node, caption=caption,
                                 reply_markup=file_keyboard(node), protect=paid,
-                                message_effect_id=effect)
+                                message_effect_id=effect,
+                                on_sent=lambda: _log_download(user_id, node.id))
+    except storage.NotReady:
+        try:
+            await bot.send_message(user_id, T.PREPARING)
+        except TelegramForbiddenError:
+            return "forbidden"
+        except TelegramAPIError:
+            pass
+        return "queued"
     except TelegramForbiddenError:
         return "forbidden"
     except Exception:
@@ -200,11 +210,15 @@ async def deliver(bot: Bot, settings: Settings, user_id: int, node: archive.Node
         except TelegramAPIError:
             pass
         return "error"
+    _log_download(user_id, node.id)
+    return "ok"
+
+
+def _log_download(user_id: int, node_id: int) -> None:
     try:
-        content.log_download(user_id, node.id)
+        content.log_download(user_id, node_id)
     except Exception:
         log.exception("log_download fallito")
-    return "ok"
 
 
 async def group_hint(bot: Bot, q: CallbackQuery, node: archive.Node) -> None:
@@ -241,7 +255,8 @@ async def open_file(bot: Bot, settings: Settings, user: User, node: archive.Node
     if not in_group:
         return
     # dal gruppo: conferma con un toast, oppure "aprimi in privato"
-    await _answer_quietly(q, T.SENT_PRIVATE if result == "ok" else None)
+    toast = {"ok": T.SENT_PRIVATE, "queued": T.QUEUED_PRIVATE}.get(result)
+    await _answer_quietly(q, toast)
     if result == "forbidden":
         await group_hint(bot, q, node)
 
@@ -414,6 +429,7 @@ async def download_all(bot: Bot, settings: Settings, user_id: int,
     `group_q`: la richiesta viene da un gruppo (per l'hint "aprimi in privato")."""
     total = len(nodes)
     done = 0
+    queued = 0
     status: Message | None = None
     try:
         try:
@@ -430,12 +446,14 @@ async def download_all(bot: Bot, settings: Settings, user_id: int,
             sent = await _send_plain(bot, settings, user_id, node)
             if sent is None:  # l'utente ha bloccato il bot: inutile continuare
                 break
-            if sent:
+            if sent == "queued":  # partirà da solo appena pronto
+                queued += 1
+            elif sent:
                 done += 1
             if i % STATUS_EVERY == 0 and i < total:
                 await _safe_edit(status, T.all_progress(i, total))
             await asyncio.sleep(SEND_INTERVAL)
-        await _safe_edit(status, T.all_done(done, total))
+        await _safe_edit(status, T.all_done(done, total) + (T.all_queued(queued) if queued else ""))
     except Exception:
         log.exception("scarica tutto fallito")
     finally:
@@ -445,14 +463,17 @@ async def download_all(bot: Bot, settings: Settings, user_id: int,
 
 
 async def _send_plain(bot: Bot, settings: Settings, user_id: int,
-                      node: archive.Node) -> bool | None:
-    """True inviato, False errore, None se l'utente ha bloccato il bot."""
+                      node: archive.Node) -> bool | str | None:
+    """True inviato, "queued" in preparazione, False errore, None se l'utente ha bloccato il bot."""
     for attempt in range(2):
         try:
             await storage.send_file(bot, settings, user_id, node,
-                                    caption=f"📖 {html.escape(node.name)}")
-            content.log_download(user_id, node.id)
+                                    caption=f"📖 {html.escape(node.name)}",
+                                    on_sent=lambda: _log_download(user_id, node.id))
+            _log_download(user_id, node.id)
             return True
+        except storage.NotReady:
+            return "queued"
         except TelegramRetryAfter as e:
             if attempt:
                 return False

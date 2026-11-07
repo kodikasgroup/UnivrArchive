@@ -1,4 +1,8 @@
-"""Canale storage: ogni contenuto (sha256) caricato una sola volta, consegna da file_id."""
+"""Canale storage: ogni contenuto (sha256) caricato una sola volta, consegna da file_id.
+
+Regola: il percorso utente (send_file) NON legge mai il disco. Se un file non è ancora
+nel canale, la richiesta va in testa alla coda del caricamento in background (l'unico
+punto che legge l'archivio su disco) e il file parte all'utente appena caricato."""
 from __future__ import annotations
 
 import asyncio
@@ -10,7 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Awaitable, Callable
 
 from aiogram import Bot
-from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramRetryAfter
 from aiogram.types import Chat, FSInputFile, InlineKeyboardMarkup, Message
 
 from bot.db import nodes as db_nodes
@@ -34,8 +38,31 @@ class Blob:
     storage_message_id: int | None
 
 
+class NotReady(Exception):
+    """Il file non è ancora nel canale: è in testa alla coda e partirà appena caricato."""
+
+
+@dataclass
+class _Waiting:
+    """Un utente che aspetta un file in preparazione."""
+    chat_id: int
+    caption: str
+    reply_markup: InlineKeyboardMarkup | None
+    protect: bool
+    extra: dict
+    on_sent: Callable[[], None] | None
+
+
+@dataclass
+class _Job:
+    """Caricamento prioritario: path su disco, file_id fallito (se c'era), chi aspetta."""
+    path: str
+    failed_file_id: str | None
+    waiting: list[_Waiting]
+
+
 _locks: dict[str, asyncio.Lock] = {}
-_refresh_tried: set[str] = set()
+_priority: dict[str, _Job] = {}  # sha256 -> job, in ordine di richiesta
 _background: asyncio.Task | None = None
 _progress: Callable[[int, int], Awaitable[None]] | None = None  # avanzamento del task in corso
 
@@ -119,34 +146,49 @@ async def send_file(
     reply_markup: InlineKeyboardMarkup | None = None,
     protect: bool = False,
     message_effect_id: str | None = None,
+    on_sent: Callable[[], None] | None = None,
 ) -> Message:
-    """Invia da file_id. Mai forward, mai la didascalia del canale."""
+    """Invia da file_id o copiando dal canale. Mai forward, mai la didascalia del canale,
+    mai letture dal disco. Se il file non è ancora nel canale solleva NotReady: la
+    richiesta resta in coda e il file parte da solo appena caricato; `on_sent` viene
+    chiamata in quel momento (es. per contare il download)."""
     if not node.sha256:
         raise ValueError("send_file: il nodo non ha sha256")
     blob = db_nodes.get_blob(node.sha256)
     extra = {"message_effect_id": message_effect_id} if message_effect_id else {}
+    waiting = _Waiting(chat_id, caption, reply_markup, protect, extra, on_sent)
     if blob is not None and not blob.file_id and blob.storage_message_id:
-        # nel canale ma senza file_id (es. token nuovo): copia dal canale, niente upload dal disco
+        # nel canale ma senza file_id (es. token nuovo): copia dal canale
         return await _copy_from_channel(bot, settings, chat_id, node, blob, caption, reply_markup, protect, extra)
     if blob is None or not blob.file_id:
-        blob = await ensure_uploaded(bot, settings, node)
-
-    async def send(file_id: str) -> Message:
-        return await bot.send_document(
-            chat_id, file_id, caption=caption, reply_markup=reply_markup, protect_content=protect, **extra
-        )
-
+        _enqueue(bot, settings, node, None, waiting)
+        raise NotReady(node.path)
     try:
-        return await send(blob.file_id)
+        return await bot.send_document(
+            chat_id, blob.file_id, caption=caption, reply_markup=reply_markup, protect_content=protect, **extra
+        )
     except TelegramBadRequest as e:
         if not _is_bad_file_id(e):
             raise
         log.warning("file_id non valido per %s, recupero", node.sha256[:12])
     if blob.storage_message_id:
         return await _copy_from_channel(bot, settings, chat_id, node, blob, caption, reply_markup, protect, extra)
-    # niente copia nel canale: ricarica dal disco e riprova
-    blob = await _reupload(bot, settings, node, blob.file_id)
-    return await send(blob.file_id)
+    # né file_id valido né copia nel canale: ricaricamento in coda prioritaria
+    _enqueue(bot, settings, node, blob.file_id, waiting)
+    raise NotReady(node.path)
+
+
+def _enqueue(bot: Bot, settings: Settings, node: Node, failed_file_id: str | None,
+             waiting: _Waiting | None) -> None:
+    """Mette il file in testa al caricamento in background e lo avvia se è fermo."""
+    job = _priority.get(node.sha256)
+    if job is None:
+        job = _priority[node.sha256] = _Job(node.path, failed_file_id, [])
+    elif failed_file_id and not job.failed_file_id:
+        job.failed_file_id = failed_file_id
+    if waiting is not None:
+        job.waiting.append(waiting)
+    resume_background_upload(bot, settings)
 
 
 async def _copy_from_channel(
@@ -175,73 +217,99 @@ async def _copy_from_channel(
     if doc:
         db_nodes.set_file_id(node.sha256, doc.file_id, doc.file_unique_id)
         return msg
-    # file_id non ricavabile dalla copia: lo rinfreschiamo in background dal disco
-    _schedule_refresh(bot, settings, node, blob.file_id)
+    # file_id non ricavabile dalla copia: lo rinfresca il caricamento in background
+    # (l'utente il file l'ha già ricevuto, nessuno aspetta)
+    _enqueue(bot, settings, node, blob.file_id, None)
     return msg or Message(message_id=copied.message_id, date=datetime.now(timezone.utc), chat=Chat(id=chat_id, type="private"))
 
 
-async def _reupload(bot: Bot, settings: Settings, node: Node, failed_file_id: str | None) -> Blob:
-    lock = _locks.setdefault(node.sha256, asyncio.Lock())
+async def _reupload_path(bot: Bot, settings: Settings, sha256: str, path: str,
+                         failed_file_id: str | None) -> Blob:
+    """Ricarica dal disco (solo dal task in background) un contenuto il cui file_id non vale più."""
+    lock = _locks.setdefault(sha256, asyncio.Lock())
     async with lock:
-        # un altro utente ha già rinfrescato il file_id mentre aspettavamo il lock?
-        blob = db_nodes.get_blob(node.sha256)
+        # un'altra richiesta ha già rinfrescato il file_id mentre aspettavamo il lock?
+        blob = db_nodes.get_blob(sha256)
         if blob and blob.file_id and blob.file_id != failed_file_id:
             return blob
         msg = await _channel_send(
-            bot, settings.storage_chat_id, _disk_file(settings, node.path),
-            _caption_for_channel(node.path, node.sha256),
+            bot, settings.storage_chat_id, _disk_file(settings, path), _caption_for_channel(path, sha256),
         )
-        return _save(node.sha256, msg)
-
-
-def _schedule_refresh(bot: Bot, settings: Settings, node: Node, failed_file_id: str | None) -> None:
-    """Ricava un file_id valido ricaricando dal disco (una volta per contenuto e per processo)."""
-    if node.sha256 in _refresh_tried or not (Path(settings.archive_dir) / node.path).is_file():
-        return
-    _refresh_tried.add(node.sha256)
-
-    async def run() -> None:
-        try:
-            await _reupload(bot, settings, node, failed_file_id)
-        except Exception:
-            log.exception("refresh file_id fallito per %s", node.path)
-
-    asyncio.get_running_loop().create_task(run())
+        return _save(sha256, msg)
 
 
 def resume_background_upload(
     bot: Bot, settings: Settings, progress: Callable[[int, int], Awaitable[None]] | None = None
 ) -> asyncio.Task | None:
-    """Carica i blob senza storage_message_id. Un solo task alla volta; None se non c'è nulla da fare."""
+    """Carica i blob senza storage_message_id e le richieste prioritarie degli utenti.
+    Un solo task alla volta; None se non c'è nulla da fare."""
     global _background, _progress
     if _background is not None and not _background.done():
         if progress is not None:  # l'ultimo che chiede riceve l'avanzamento
             _progress = progress
         return _background
-    if not db_nodes.blobs_to_upload():
+    if not _priority and not db_nodes.blobs_to_upload():
         return None
     _progress = progress
     _background = asyncio.get_running_loop().create_task(_run_background(bot, settings))
     return _background
 
 
+async def _run_priority(bot: Bot, settings: Settings, sha: str, job: _Job) -> None:
+    """Carica (o ricarica) un file richiesto da un utente e lo consegna a chi aspetta."""
+    try:
+        if job.failed_file_id:
+            blob = await _reupload_path(bot, settings, sha, job.path, job.failed_file_id)
+        else:
+            blob = await _upload(bot, settings, sha, job.path)
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        log.exception("caricamento prioritario fallito: %s", job.path)
+        return  # chi aspettava può ricliccare: la richiesta torna in coda
+    for w in job.waiting:
+        try:
+            await bot.send_document(w.chat_id, blob.file_id, caption=w.caption,
+                                    reply_markup=w.reply_markup, protect_content=w.protect, **w.extra)
+        except TelegramAPIError:
+            log.warning("consegna in attesa fallita: %s → %s", job.path, w.chat_id)
+            continue
+        if w.on_sent is not None:
+            try:
+                w.on_sent()
+            except Exception:
+                log.exception("on_sent fallita per %s", job.path)
+
+
 async def _run_background(bot, settings) -> None:
-    """Ripete la query finché resta qualcosa: i blob aggiunti da un /reindex nel frattempo
-    entrano nel giro dopo; quelli falliti in questo giro si riprovano al prossimo avvio."""
+    """Prima le richieste degli utenti (in ordine di arrivo), poi i blob mancanti.
+    Rilegge la coda a ogni file: richieste nuove e blob aggiunti da un /reindex nel
+    frattempo entrano subito; quelli falliti in questo giro si riprovano al prossimo avvio."""
     failed: set[tuple[str, str]] = set()
     done = 0
-    total = 0
     last_send = 0.0
-    while todo := [t for t in db_nodes.blobs_to_upload() if tuple(t) not in failed]:
-        total = done + len(todo)
-        for sha, path in todo:
-            blob = db_nodes.get_blob(sha)
-            if blob and blob.storage_message_id:
-                done += 1
-                continue
-            wait = UPLOAD_INTERVAL - (time.monotonic() - last_send)
-            if wait > 0:
-                await asyncio.sleep(wait)
+
+    async def pace() -> None:
+        nonlocal last_send
+        wait = UPLOAD_INTERVAL - (time.monotonic() - last_send)
+        if wait > 0:
+            await asyncio.sleep(wait)
+        last_send = time.monotonic()
+
+    while True:
+        if _priority:
+            sha = next(iter(_priority))
+            await pace()
+            job = _priority.pop(sha)  # tolto ora: chi chiede durante il caricamento crea un job nuovo
+            await _run_priority(bot, settings, sha, job)
+            continue
+        todo = [t for t in db_nodes.blobs_to_upload() if tuple(t) not in failed]
+        if not todo:
+            break
+        sha, path = todo[0]
+        blob = db_nodes.get_blob(sha)
+        if not (blob and blob.storage_message_id):
+            await pace()
             try:
                 await _upload(bot, settings, sha, path)
             except FileNotFoundError:
@@ -252,9 +320,8 @@ async def _run_background(bot, settings) -> None:
             except Exception:
                 log.exception("upload fallito: %s", path)
                 failed.add((sha, path))
-            last_send = time.monotonic()
-            done += 1
-            if _progress and done % 10 == 0:
-                await _progress(done, total)
+        done += 1
+        if _progress and done % 10 == 0:
+            await _progress(done, done + len(todo) - 1)
     if _progress and done % 10 != 0:
-        await _progress(done, total)
+        await _progress(done, done)

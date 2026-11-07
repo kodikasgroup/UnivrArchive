@@ -93,6 +93,9 @@ async def main() -> None:
 
     jobs.start(bot, settings)
     storage.resume_background_upload(bot, settings)
+    # il media di benvenuto si carica qui, una volta: /start usa solo il file_id
+    from bot.handlers import browse
+    asyncio.get_running_loop().create_task(browse.prepare_welcome(bot, settings))
 
     try:
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())

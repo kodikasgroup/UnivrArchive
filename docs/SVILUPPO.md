@@ -56,6 +56,11 @@ Ogni modulo in `bot/handlers/` espone `router`, `COMMANDS` e `ADMIN_COMMANDS`;
 - **Bottoni:** un solo tipo per bottone. Un bottone `disabled` non ha
   `callback_data`.
 - **Mai `forward`** dal canale storage e mai la sua didascalia verso gli utenti.
+- **Il percorso utente non legge mai il disco.** Handler e tastiere usano solo
+  l'indice (`archive.tree`, caricato dal DB) e i `file_id`. Il disco lo leggono
+  solo `/reindex`, il caricamento in background (`storage`) e la preparazione del
+  media di benvenuto all'avvio. Se un file non è pronto, `storage.send_file`
+  solleva `NotReady` e lo mette in coda prioritaria.
 - **Ogni bug corretto** lascia un test che fallirebbe senza la correzione.
 - Modifiche allo schema: una nuova voce in fondo a `MIGRATIONS` in
   `bot/db/__init__.py` (versione in `PRAGMA user_version`), mai modificare le

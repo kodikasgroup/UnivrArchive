@@ -242,5 +242,74 @@ class HandlerFixTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(list(files._reported), [(2, 2)])
 
 
+class NoDiskInUserPathTests(unittest.IsolatedAsyncioTestCase):
+    """Il percorso utente non legge mai il disco: file non pronti in coda, /start dal file_id."""
+
+    def setUp(self):
+        from unittest import mock
+        from bot import keyboards
+        keyboards.set_bot_username("testbot")
+        archive.tree = sup.make_tree(specs(), old=True)
+        self.settings = sup._Settings()
+        self.bot = mock.AsyncMock()
+        self.logged = []
+        self.on_sent = []
+
+        async def not_ready(bot, settings, user_id, node, **kw):
+            self.on_sent.append(kw["on_sent"])
+            raise files.storage.NotReady(node.path)
+        for target, attr, value in (
+                (files.storage, "send_file", not_ready),
+                (files.content, "log_download", lambda u, n: self.logged.append((u, n))),
+                (files, "SEND_INTERVAL", 0)):
+            p = mock.patch.object(target, attr, value, create=True)
+            p.start()
+            self.addCleanup(p.stop)
+        files._active_downloads.clear()
+
+    async def test_file_not_ready_is_queued_and_counted_only_when_sent(self):
+        result = await files.deliver(self.bot, self.settings, 7, archive.tree.get(10))
+        self.assertEqual(result, "queued")
+        self.bot.send_message.assert_awaited_once_with(7, T.PREPARING)
+        self.assertEqual(self.logged, [])          # non ancora inviato: non conta
+        self.on_sent[0]()                          # il task in background lo consegna
+        self.assertEqual(self.logged, [(7, 10)])
+
+    async def test_download_all_reports_queued_files(self):
+        await files.download_all(self.bot, self.settings, 7, archive.tree.free_files(2))
+        status = self.bot.send_message.return_value
+        final = status.edit_text.await_args.args[0]
+        self.assertIn(T.all_queued(3).strip(), final)
+        self.assertEqual(self.logged, [])
+
+    async def test_start_never_reads_media_dir(self):
+        from unittest import mock
+        with mock.patch.object(browse.db, "kv_get", lambda k: None, create=True), \
+                mock.patch.object(browse, "_welcome_file",
+                                  side_effect=AssertionError("/start ha letto il disco")):
+            await browse.send_welcome(self.bot, self.settings, 7, False)
+        self.bot.send_animation.assert_not_awaited()
+        self.bot.send_message.assert_awaited_once()
+
+    async def test_prepare_welcome_uploads_to_storage_channel_once(self):
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest import mock
+        media = Path(tempfile.mkdtemp())
+        (media / "welcome.mp4").write_bytes(b"x")
+        kv = {}
+        settings = SimpleNamespace(media_dir=media, storage_chat_id=-100)
+        self.bot.send_animation.return_value = SimpleNamespace(
+            animation=SimpleNamespace(file_id="WFID"), document=None, video=None)
+        with mock.patch.object(browse.db, "kv_get", kv.get, create=True), \
+                mock.patch.object(browse.db, "kv_set", kv.__setitem__, create=True):
+            await browse.prepare_welcome(self.bot, settings)
+            await browse.prepare_welcome(self.bot, settings)   # già pronto: niente
+        self.bot.send_animation.assert_awaited_once()
+        self.assertEqual(self.bot.send_animation.await_args.args[0], -100)
+        self.assertEqual(kv["welcome_media"], "WFID")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,6 @@
 """Navigazione a bottoni, /start, deep link, ricerca, preferiti, recenti, novità."""
 
+import asyncio
 import base64
 import binascii
 import logging
@@ -8,7 +9,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from aiogram import Bot, F, Router
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import (
     BotCommand,
@@ -147,23 +148,37 @@ def _welcome_file(settings: Settings) -> Path | None:
     return (preferred or candidates or [None])[0]
 
 
+async def prepare_welcome(bot: Bot, settings: Settings) -> None:
+    """All'avvio (mai durante un /start): se manca il file_id del media di benvenuto,
+    lo carica nel canale storage e lo salva. È l'unico punto che legge media/."""
+    if db.kv_get("welcome_media"):
+        return
+    path = _welcome_file(settings)
+    if path is None:
+        return
+    try:
+        msg = await bot.send_animation(settings.storage_chat_id, FSInputFile(path), caption="welcome")
+    except TelegramAPIError:
+        log.exception("media di benvenuto non caricato")
+        return
+    media = msg.animation or msg.document or msg.video
+    if media is not None:
+        db.kv_set("welcome_media", media.file_id)
+
+
 async def send_welcome(bot: Bot, settings: Settings, chat_id: int, is_admin: bool) -> None:
-    """Animazione + testo + menu HOME in un solo messaggio (se c'è il media)."""
+    """Animazione + testo + menu HOME in un solo messaggio. Solo dal file_id salvato:
+    nessuna lettura dal disco. Senza media (o file_id non valido) manda solo il testo."""
     text, kb = keyboards.folder(None, is_admin=is_admin)
     file_id = db.kv_get("welcome_media")
     if file_id:
         try:
             await bot.send_animation(chat_id, file_id, caption=text, reply_markup=kb)
             return
-        except TelegramBadRequest:  # file_id di un altro bot o scaduto
-            log.warning("welcome_media non valido, ricarico dal disco")
-    path = _welcome_file(settings)
-    if path is not None:
-        msg = await bot.send_animation(chat_id, FSInputFile(path), caption=text, reply_markup=kb)
-        media = msg.animation or msg.document or (msg.video if msg.video else None)
-        if media is not None:
-            db.kv_set("welcome_media", media.file_id)
-        return
+        except TelegramBadRequest:  # file_id di un altro bot o scaduto: si ricarica in background
+            log.warning("welcome_media non valido, ricarico in background")
+            db.kv_set("welcome_media", "")
+            asyncio.get_running_loop().create_task(prepare_welcome(bot, settings))
     await bot.send_message(chat_id, text, reply_markup=kb)
 
 
