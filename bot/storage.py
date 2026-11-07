@@ -311,6 +311,8 @@ async def _run_background(bot, settings) -> None:
     failed: set[tuple[str, str]] = set()
     done = 0
     last_send = 0.0
+    log.info("canale storage: caricamento in background avviato (%d file da caricare, %d richiesti da utenti)",
+             len(db_nodes.blobs_to_upload(MAX_SEND_BYTES)), len(_priority))
 
     async def pace() -> None:
         nonlocal last_send
@@ -324,6 +326,7 @@ async def _run_background(bot, settings) -> None:
             sha = next(iter(_priority))
             await pace()
             job = _priority.pop(sha)  # tolto ora: chi chiede durante il caricamento crea un job nuovo
+            log.info("canale storage: carico subito %s (richiesto da %d utenti)", job.path, len(job.waiting))
             await _run_priority(bot, settings, sha, job)
             continue
         todo = [t for t in db_nodes.blobs_to_upload(MAX_SEND_BYTES) if tuple(t) not in failed]
@@ -344,7 +347,11 @@ async def _run_background(bot, settings) -> None:
                 log.exception("upload fallito: %s", path)
                 failed.add((sha, path))
         done += 1
-        if _progress and done % 10 == 0:
-            await _progress(done, done + len(todo) - 1)
+        if done % 10 == 0:
+            log.info("canale storage: caricati %d/%d", done, done + len(todo) - 1)
+            if _progress:
+                await _progress(done, done + len(todo) - 1)
+    log.info("canale storage: caricamento finito (%d elaborati, %d falliti: si riprovano al prossimo avvio)",
+             done, len(failed))
     if _progress and done % 10 != 0:
         await _progress(done, done)

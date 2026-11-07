@@ -322,7 +322,9 @@ def _scan(
             files[path] = (size, mtime, sha)
         else:
             to_hash.append((path, size, mtime))
-    last = time.monotonic()
+    last = last_log = time.monotonic()
+    if to_hash:
+        log.info("reindex: calcolo hash di %d file (il primo reindex può richiedere minuti)", len(to_hash))
     for i, (path, size, mtime) in enumerate(to_hash, 1):
         try:
             sha = _sha256_file(root / path)
@@ -333,6 +335,9 @@ def _scan(
             continue
         cache[(path, size, mtime)] = sha
         files[path] = (size, mtime, sha)
+        if time.monotonic() - last_log >= 15:
+            last_log = time.monotonic()
+            log.info("reindex: hash %d/%d", i, len(to_hash))
         if progress and time.monotonic() - last >= 5:
             last = time.monotonic()
             asyncio.run_coroutine_threadsafe(progress(f"Hash {i}/{len(to_hash)}…"), loop)
@@ -573,6 +578,7 @@ def _release(token: object | None = None) -> None:
 
 def _expire_if_stale() -> None:
     if _state is not None and _clock() >= _state.expires:
+        log.info("reindex: anteprima scaduta senza ✅ Applica: nulla è stato pubblicato")
         _release(_run)
 
 
@@ -617,10 +623,16 @@ async def _scan_and_plan(settings, admin_id, progress, cache, token) -> Preview:
     if preview.is_empty:
         if touches:  # solo mtime cambiati: nessuna modifica visibile
             db_nodes.apply_touches(touches)
+        log.info("reindex: nessuna modifica rispetto all'indice")
         _release(token)
         return preview
     _state = _State(admin_id, settings, preview, plan, scan.signature, cache, _clock() + PREVIEW_TTL)
     _arm_timer()
+    log.info("reindex: anteprima pronta per l'admin %s — nuovi %d, modificati %d, spostati %d, rimossi %d, "
+             "nascosti %d, in copia %d. In attesa di ✅ Applica (scade tra %d minuti)",
+             admin_id, len(preview.added), len(preview.modified), len(preview.moved), len(preview.removed),
+             len(preview.hidden_no_price) + len(preview.hidden_over_max), len(preview.in_copy),
+             PREVIEW_TTL // 60)
     return preview
 
 
@@ -635,6 +647,7 @@ async def start_reindex(
     await reindex_lock.acquire()
     _owner_id = admin_id
     _run = token = object()
+    log.info("reindex: scansione di %s avviata dall'admin %s", settings.archive_dir, admin_id)
     try:
         return await _scan_and_plan(settings, admin_id, progress, {}, token)
     except BaseException:
@@ -663,6 +676,7 @@ async def apply_reindex(admin_id: int) -> ApplyResult:
         current = await asyncio.to_thread(lambda: frozenset(_walk(Path(st.settings.archive_dir))))
         _check_current(token)
         if current != st.signature:
+            log.info("reindex: il disco è cambiato dopo l'anteprima, ne preparo una nuova")
             preview = await _scan_and_plan(st.settings, admin_id, None, st.cache, token)
             raise DiskChanged(preview)
         plan = st.plan
@@ -679,9 +693,13 @@ async def apply_reindex(admin_id: int) -> ApplyResult:
         _release(token)
         raise
     _release(token)
+    log.info("reindex: applicato dall'admin %s — nuovi %d, modificati %d, spostati %d, rimossi %d; "
+             "file da caricare nel canale storage: %d", admin_id, result.added, result.modified,
+             result.moved, result.removed, result.to_upload)
     return result
 
 
 def cancel_reindex(admin_id: int) -> None:
     if _owner_id == admin_id:
+        log.info("reindex: annullato dall'admin %s", admin_id)
         _release(_run)
